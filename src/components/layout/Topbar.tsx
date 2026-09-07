@@ -5,10 +5,11 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { NotificationItem } from "@/components/domain/NotificationItem";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { BellIcon, ChevronDownIcon, LogOutIcon, MenuIcon, UserIcon } from "@/components/ui/icons";
-import type { AppNotification, UserRole } from "@/types/domain";
+import type { AppNotification } from "@/types/domain";
+import type { Panel } from "@/lib/panel";
 import { cn } from "@/lib/utils";
 
-const NOTIFICATIONS_PAGE: Partial<Record<UserRole, string>> = {
+const NOTIFICATIONS_PAGE: Partial<Record<Panel, string>> = {
   retailer: "/retailer/notifications",
   supplier: "/supplier/notifications",
 };
@@ -25,7 +26,15 @@ function useClickOutside(onOutside: () => void) {
   return ref;
 }
 
-export function Topbar({ onMenuClick, title }: { onMenuClick: () => void; title: string }) {
+export function Topbar({
+  role,
+  onMenuClick,
+  title,
+}: {
+  role: Panel;
+  onMenuClick: () => void;
+  title: string;
+}) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -33,14 +42,17 @@ export function Topbar({ onMenuClick, title }: { onMenuClick: () => void; title:
   const notifRef = useClickOutside(() => setNotifOpen(false));
   const profileRef = useClickOutside(() => setProfileOpen(false));
 
-  const { notifications, unreadCount, markRead, markAllRead } = useNotifications(user?.id);
+  const { notifications, unreadCount, markRead, markAllRead, isReadForUser } = useNotifications(
+    user?._id,
+  );
 
-  const displayName = user?.role === "supplier" ? user.companyName : user?.role === "retailer" ? user.businessName : user?.name;
+  const displayName = user
+    ? user.companyName || `${user.firstName} ${user.lastName}`
+    : "";
 
   const handleNotificationClick = (n: AppNotification) => {
-    markRead(n.id);
+    markRead(n._id);
     setNotifOpen(false);
-    if (n.link) navigate(n.link);
   };
 
   return (
@@ -92,15 +104,20 @@ export function Topbar({ onMenuClick, title }: { onMenuClick: () => void; title:
               ) : (
                 <div className="divide-y divide-slate-100">
                   {notifications.slice(0, 8).map((n) => (
-                    <NotificationItem key={n.id} notification={n} onClick={handleNotificationClick} />
+                    <NotificationItem
+                      key={n._id}
+                      notification={n}
+                      isRead={isReadForUser(n)}
+                      onClick={handleNotificationClick}
+                    />
                   ))}
                 </div>
               )}
-              {user && NOTIFICATIONS_PAGE[user.role] && (
+              {NOTIFICATIONS_PAGE[role] && (
                 <button
                   type="button"
                   onClick={() => {
-                    navigate(NOTIFICATIONS_PAGE[user.role]!);
+                    navigate(NOTIFICATIONS_PAGE[role]!);
                     setNotifOpen(false);
                   }}
                   className="block w-full border-t border-slate-100 py-2.5 text-center text-sm font-medium text-tertiary hover:bg-slate-50"
@@ -132,12 +149,12 @@ export function Topbar({ onMenuClick, title }: { onMenuClick: () => void; title:
               <button
                 type="button"
                 onClick={() => {
-                  navigate(`/${user?.role}/profile`);
+                  navigate(`/${role}/profile`);
                   setProfileOpen(false);
                 }}
                 className={cn(
                   "flex w-full items-center gap-2 px-4 py-2 text-sm text-primary hover:bg-slate-50",
-                  user?.role === "admin" && "hidden",
+                  role === "admin" && "hidden",
                 )}
               >
                 <UserIcon className="h-4 w-4" /> Profile

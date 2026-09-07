@@ -10,30 +10,25 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Spinner";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PackageIcon, PlusIcon } from "@/components/ui/icons";
-import { poolProgress } from "@/lib/utils";
-import type { SupplierUser } from "@/types/domain";
+import { formatDate, poolProgress } from "@/lib/utils";
 
 export function SupplierDashboard() {
   const { user } = useAuth();
-  const supplier = user as SupplierUser;
 
-  const { data: offers, isLoading: offersLoading } = useFetch(
-    () => listOffers({ supplierId: supplier.id }),
-    [supplier.id],
-  );
-  const { data: pools, isLoading: poolsLoading } = useFetch(
-    () => listPools({ supplierId: supplier.id, status: "active" }),
-    [supplier.id],
-  );
-  const { notifications } = useNotifications(supplier.id);
+  const { data: offers, isLoading: offersLoading } = useFetch(() => listOffers(), []);
+  const { data: pools, isLoading: poolsLoading } = useFetch(() => listPools(), []);
+  const { unreadCount } = useNotifications(user?._id);
 
-  const pendingOffers = (offers ?? []).filter((o) => o.status === "pending_review" || o.status === "negotiation");
-  const readyToFulfill = (pools ?? []).filter((p) => poolProgress(p.currentQuantity, p.targetQuantity) >= 80);
+  const pendingOffers = (offers ?? []).filter((o) => o.status === "PENDING" || o.status === "NEGOTIATION");
+  const openPools = (pools ?? []).filter((p) => p.status === "OPEN");
+  const readyToFulfill = openPools.filter(
+    (p) => poolProgress(p.targetQuantity - p.currentQuantity, p.targetQuantity) >= 80,
+  );
 
   return (
     <div className="space-y-8">
       <PageHeader
-        title={`Welcome back, ${supplier.companyName}`}
+        title={`Welcome back, ${user?.companyName ?? ""}`}
         description="Here's what needs your attention today."
         action={
           <LinkButton to="/supplier/offers/new">
@@ -46,7 +41,7 @@ export function SupplierDashboard() {
         <Card>
           <CardContent>
             <p className="text-sm text-slate-500">Active pools</p>
-            <p className="mt-1 font-heading text-2xl font-semibold text-primary">{pools?.length ?? "—"}</p>
+            <p className="mt-1 font-heading text-2xl font-semibold text-primary">{openPools.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -58,9 +53,7 @@ export function SupplierDashboard() {
         <Card>
           <CardContent>
             <p className="text-sm text-slate-500">Unread notifications</p>
-            <p className="mt-1 font-heading text-2xl font-semibold text-primary">
-              {notifications.filter((n) => !n.read).length}
-            </p>
+            <p className="mt-1 font-heading text-2xl font-semibold text-primary">{unreadCount}</p>
           </CardContent>
         </Card>
       </div>
@@ -71,12 +64,12 @@ export function SupplierDashboard() {
           <Card className="overflow-hidden p-0">
             <div className="divide-y divide-slate-100">
               {pendingOffers.map((o) => (
-                <div key={o.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                <div key={o._id} className="flex items-center justify-between gap-3 px-5 py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-primary">{o.productName}</p>
-                    <p className="text-xs text-slate-400">Submitted {new Date(o.submittedAt).toLocaleDateString()}</p>
+                    <p className="truncate text-sm font-medium text-primary">{o.name}</p>
+                    <p className="text-xs text-slate-400">Submitted {formatDate(o.createdAt)}</p>
                   </div>
-                  <StatusBadge status={o.status} />
+                  <StatusBadge status={o.status} domain="offer" />
                 </div>
               ))}
             </div>
@@ -104,7 +97,7 @@ export function SupplierDashboard() {
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {readyToFulfill.map((pool) => (
-              <PoolCard key={pool.id} pool={pool} />
+              <PoolCard key={pool._id} pool={pool} />
             ))}
           </div>
         )}

@@ -12,15 +12,13 @@ import { SearchIcon, PackageIcon } from "@/components/ui/icons";
 
 export function PoolsBrowsePage() {
   const [search, setSearch] = useState("");
-  const { data: pools, isLoading, error, refetch } = useFetch(() => listPools({ status: "active" }), []);
+  const { data: pools, isLoading, error, refetch } = useFetch(() => listPools({ status: "OPEN" }), []);
 
   const filtered = (pools ?? []).filter((p) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
-      p.productName.toLowerCase().includes(q) ||
-      p.supplierName.toLowerCase().includes(q) ||
-      p.category.toLowerCase().includes(q)
+      p.productName.toLowerCase().includes(q) || (p.supplierName ?? "").toLowerCase().includes(q)
     );
   });
 
@@ -34,7 +32,7 @@ export function PoolsBrowsePage() {
       <div className="relative mb-6 max-w-sm">
         <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <Input
-          placeholder="Search by product, supplier, or category"
+          placeholder="Search by product or supplier"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9"
@@ -59,10 +57,10 @@ export function PoolsBrowsePage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((pool) => (
             <PoolCard
-              key={pool.id}
+              key={pool._id}
               pool={pool}
               action={
-                <LinkButton to={`/retailer/pools/${pool.id}`} className="w-full">
+                <LinkButton to={`/retailer/pools/${pool._id}`} className="w-full">
                   View & Join
                 </LinkButton>
               }

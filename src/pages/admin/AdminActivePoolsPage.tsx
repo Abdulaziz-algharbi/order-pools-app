@@ -11,26 +11,39 @@ import type { Pool } from "@/types/domain";
 
 export function AdminActivePoolsPage() {
   const navigate = useNavigate();
-  const { data: pools, isLoading, error, refetch } = useFetch(() => listPools({ status: "active" }), []);
+  const { data: pools, isLoading, error, refetch } = useFetch(() => listPools({ status: "OPEN" }), []);
 
   const columns: Column<Pool>[] = [
-    { key: "product", header: "Product", render: (p) => (
-      <div>
-        <p className="font-medium text-primary">{p.productName}</p>
-        <p className="text-xs text-slate-400">{p.supplierName}</p>
-      </div>
-    ) },
-    { key: "progress", header: "Progress", render: (p) => (
-      <div className="w-36">
-        <div className="mb-1 flex justify-between text-xs text-slate-500">
-          <span>{formatNumber(p.currentQuantity)}/{formatNumber(p.targetQuantity)} {p.unit}</span>
+    {
+      key: "product",
+      header: "Product",
+      render: (p) => (
+        <div>
+          <p className="font-medium text-primary">{p.productName}</p>
+          <p className="text-xs text-slate-400">{p.supplierName}</p>
         </div>
-        <ProgressBar value={poolProgress(p.currentQuantity, p.targetQuantity)} />
-      </div>
-    ) },
+      ),
+    },
+    {
+      key: "progress",
+      header: "Progress",
+      render: (p) => {
+        const collected = p.targetQuantity - p.currentQuantity;
+        return (
+          <div className="w-36">
+            <div className="mb-1 flex justify-between text-xs text-slate-500">
+              <span>
+                {formatNumber(collected)}/{formatNumber(p.targetQuantity)} {p.unit.toLowerCase()}
+              </span>
+            </div>
+            <ProgressBar value={poolProgress(collected, p.targetQuantity)} />
+          </div>
+        );
+      },
+    },
     { key: "participants", header: "Retailers", render: (p) => p.participantCount },
-    { key: "deadline", header: "Deadline", render: (p) => formatDate(p.deadline) },
-    { key: "status", header: "Status", render: (p) => <StatusBadge status={p.status} /> },
+    { key: "deadline", header: "Deadline", render: (p) => formatDate(p.endDate) },
+    { key: "status", header: "Status", render: (p) => <StatusBadge status={p.status} domain="pool" /> },
   ];
 
   return (
@@ -42,11 +55,11 @@ export function AdminActivePoolsPage() {
         <DataTable
           columns={columns}
           data={pools ?? []}
-          rowKey={(p) => p.id}
+          rowKey={(p) => p._id}
           isLoading={isLoading}
           emptyTitle="No active pools"
           renderMobileTitle={(p) => p.productName}
-          onRowClick={(p) => navigate(`/admin/pools/${p.id}`)}
+          onRowClick={(p) => navigate(`/admin/pools/${p._id}`)}
         />
       )}
     </div>

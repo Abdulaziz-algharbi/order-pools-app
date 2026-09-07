@@ -3,13 +3,13 @@ import { Outlet, useMatches } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { CloseIcon } from "@/components/ui/icons";
-import type { UserRole } from "@/types/domain";
+import type { Panel } from "@/lib/panel";
 
 interface RouteHandle {
   title?: string;
 }
 
-export function AppShell({ role }: { role: UserRole }) {
+export function AppShell({ role }: { role: Panel }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const matches = useMatches();
   const title =
@@ -47,7 +47,11 @@ export function AppShell({ role }: { role: UserRole }) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onMenuClick={() => setMobileNavOpen(true)} title={title?.title ?? "Order Pool"} />
+        <Topbar
+          role={role}
+          onMenuClick={() => setMobileNavOpen(true)}
+          title={title?.title ?? "Order Pool"}
+        />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <Outlet />
         </main>

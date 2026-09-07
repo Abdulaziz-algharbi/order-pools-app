@@ -8,14 +8,13 @@ import {
   type ReactNode,
 } from "react";
 import type { AppUser } from "@/types/domain";
-import { findUserById } from "@/mocks/api";
-
-const STORAGE_KEY = "order-pool.session-user-id";
+import { getAccessToken, clearTokens, setTokens } from "@/lib/tokenStore";
+import { fetchCurrentUser, login as apiLogin, logout as apiLogout } from "@/mocks/api";
 
 interface AuthContextValue {
   user: AppUser | null;
   isLoading: boolean;
-  loginAs: (userId: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -26,32 +25,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedId = localStorage.getItem(STORAGE_KEY);
-    if (!storedId) {
+    if (!getAccessToken()) {
       setIsLoading(false);
       return;
     }
-    findUserById(storedId).then((found) => {
-      setUser(found ?? null);
-      setIsLoading(false);
-    });
+    fetchCurrentUser()
+      .then(setUser)
+      .catch(() => {
+        clearTokens();
+        setUser(null);
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
-  const loginAs = useCallback(async (userId: string) => {
-    const found = await findUserById(userId);
-    if (!found) throw new Error("Account not found");
-    localStorage.setItem(STORAGE_KEY, found.id);
-    setUser(found);
+  // A background request whose silent-refresh attempt also failed (see
+  // lib/http.ts) — the session is over even though nothing on this page
+  // triggered it directly, so drop the user back to a logged-out state.
+  useEffect(() => {
+    const handleSessionExpired = () => setUser(null);
+    window.addEventListener("order-pool:session-expired", handleSessionExpired);
+    return () =>
+      window.removeEventListener("order-pool:session-expired", handleSessionExpired);
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const { accessToken, refreshToken } = await apiLogin(email, password);
+    setTokens(accessToken, refreshToken);
+    const me = await fetchCurrentUser();
+    setUser(me);
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
+    apiLogout().catch(() => {
+      // Best-effort — the tokens are cleared locally regardless.
+    });
+    clearTokens();
     setUser(null);
   }, []);
 
   const value = useMemo(
-    () => ({ user, isLoading, loginAs, logout }),
-    [user, isLoading, loginAs, logout],
+    () => ({ user, isLoading, login, logout }),
+    [user, isLoading, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

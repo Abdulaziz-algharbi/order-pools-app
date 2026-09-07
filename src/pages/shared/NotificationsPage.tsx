@@ -1,6 +1,5 @@
 import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/hooks/useNotifications";
-import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { NotificationItem } from "@/components/domain/NotificationItem";
@@ -12,12 +11,12 @@ import type { AppNotification } from "@/types/domain";
 
 export function NotificationsPage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const { notifications, isLoading, unreadCount, markRead, markAllRead } = useNotifications(user?.id);
+  const { notifications, isLoading, unreadCount, markRead, markAllRead, isReadForUser } = useNotifications(
+    user?._id,
+  );
 
   const handleClick = (n: AppNotification) => {
-    markRead(n.id);
-    if (n.link) navigate(n.link);
+    markRead(n._id);
   };
 
   return (
@@ -46,7 +45,7 @@ export function NotificationsPage() {
         <Card className="overflow-hidden p-0">
           <div className="divide-y divide-slate-100">
             {notifications.map((n) => (
-              <NotificationItem key={n.id} notification={n} onClick={handleClick} />
+              <NotificationItem key={n._id} notification={n} isRead={isReadForUser(n)} onClick={handleClick} />
             ))}
           </div>
         </Card>

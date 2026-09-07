@@ -1,44 +1,79 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
-import { assignDelivery, getPool, listPoolParticipants } from "@/mocks/api";
-import { PoolOverview } from "@/components/domain/PoolOverview";
+import {
+  createDelivery,
+  getPool,
+  getUserById,
+  listPoolParticipants,
+  updateDeliveryStatus,
+  listDeliveries,
+} from "@/mocks/api";
+import { PoolOverview, type PoolParticipantRow } from "@/components/domain/PoolOverview";
 import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
-import { FieldWrapper, Input } from "@/components/ui/Field";
-import { PageSpinner } from "@/components/ui/Spinner";
+import { PageSpinner, Spinner } from "@/components/ui/Spinner";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { formatDateTime } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
+import type { Delivery } from "@/types/domain";
 
 export function AdminPoolDetailPage() {
   const { poolId } = useParams<{ poolId: string }>();
   const { data: pool, isLoading, error, refetch } = useFetch(() => getPool(poolId!), [poolId]);
   const { data: participants } = useFetch(() => listPoolParticipants(poolId!), [poolId]);
+  const { data: deliveries, refetch: refetchDeliveries } = useFetch(() => listDeliveries(), []);
 
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [driverName, setDriverName] = useState("");
-  const [driverPhone, setDriverPhone] = useState("");
-  const [eta, setEta] = useState("");
-  const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [rows, setRows] = useState<PoolParticipantRow[]>([]);
+  const [rowsLoading, setRowsLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const delivery: Delivery | undefined = deliveries?.find((d) => d.pool_ref === poolId);
+
+  useEffect(() => {
+    if (!participants || participants.length === 0) {
+      setRows([]);
+      return;
+    }
+    setRowsLoading(true);
+    const uniqueIds = [...new Set(participants.map((p) => p.user_ref))];
+    Promise.all(uniqueIds.map((id) => getUserById(id).catch(() => null)))
+      .then((users) => {
+        const nameById = new Map(
+          users.filter((u): u is NonNullable<typeof u> => !!u).map((u) => [u._id, u.companyName]),
+        );
+        setRows(
+          participants.map((p) => ({
+            key: p._id,
+            label: nameById.get(p.user_ref) ?? "Unknown retailer",
+            quantity: p.quantity,
+          })),
+        );
+      })
+      .finally(() => setRowsLoading(false));
+  }, [participants]);
 
   if (isLoading) return <PageSpinner label="Loading pool details…" />;
   if (error || !pool) return <ErrorState title="Pool not found" onRetry={refetch} />;
 
-  const handleAssign = async () => {
-    if (!driverName.trim() || !driverPhone.trim() || !eta) {
-      setFormError("All fields are required.");
-      return;
-    }
-    setSubmitting(true);
+  const handleStartDelivery = async () => {
+    setBusy(true);
     try {
-      await assignDelivery(pool.id, driverName.trim(), driverPhone.trim(), new Date(eta).toISOString());
-      setAssignOpen(false);
+      await createDelivery(pool._id);
       refetch();
-    } catch (e) {
-      setFormError(e instanceof Error ? e.message : "Could not assign delivery.");
+      refetchDeliveries();
     } finally {
-      setSubmitting(false);
+      setBusy(false);
+    }
+  };
+
+  const handleAdvanceDelivery = async (status: "DELIVERING" | "DELIVERED") => {
+    if (!delivery) return;
+    setBusy(true);
+    try {
+      await updateDeliveryStatus(delivery._id, status);
+      refetch();
+      refetchDeliveries();
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -48,58 +83,38 @@ export function AdminPoolDetailPage() {
         &larr; Back to pools
       </Link>
 
-      <PoolOverview pool={pool} participants={participants ?? undefined}>
-        {pool.delivery && (
+      <PoolOverview pool={pool} participants={rowsLoading ? undefined : rows}>
+        {rowsLoading && <Spinner className="h-5 w-5" />}
+
+        {delivery && (
           <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
             <p className="mb-2 font-medium text-primary">Delivery</p>
-            {pool.delivery.driverName && (
-              <p className="text-slate-600">
-                Driver: <span className="font-medium text-primary">{pool.delivery.driverName}</span>
-                {pool.delivery.driverPhone && ` · ${pool.delivery.driverPhone}`}
-              </p>
-            )}
-            {pool.delivery.estimatedArrival && (
-              <p className="mt-1 text-slate-600">ETA: {formatDateTime(pool.delivery.estimatedArrival)}</p>
-            )}
-            {pool.delivery.deliveredAt && (
-              <p className="mt-1 text-slate-600">Delivered {formatDateTime(pool.delivery.deliveredAt)}</p>
-            )}
+            <p className="text-slate-600">
+              Status: <span className="font-medium text-primary">{delivery.deliveryStatus}</span>
+            </p>
+            <p className="mt-1 text-slate-500">
+              {formatNumber(pool.targetQuantity - pool.currentQuantity)} {pool.unit.toLowerCase()} for{" "}
+              {pool.participantCount} retailers
+            </p>
           </div>
         )}
 
-        {pool.status === "met" && (
-          <Button onClick={() => setAssignOpen(true)}>Assign delivery</Button>
+        {pool.status === "TARGET_REACHED" && (
+          <Button onClick={handleStartDelivery} isLoading={busy}>
+            Start delivery
+          </Button>
+        )}
+        {delivery?.deliveryStatus === "PENDING" && (
+          <Button onClick={() => handleAdvanceDelivery("DELIVERING")} isLoading={busy}>
+            Start transit
+          </Button>
+        )}
+        {delivery?.deliveryStatus === "DELIVERING" && (
+          <Button onClick={() => handleAdvanceDelivery("DELIVERED")} isLoading={busy}>
+            Mark delivered
+          </Button>
         )}
       </PoolOverview>
-
-      <Modal
-        open={assignOpen}
-        onClose={() => setAssignOpen(false)}
-        title="Assign delivery"
-        description={`Assign a driver to fulfill ${pool.productName}.`}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setAssignOpen(false)} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button onClick={handleAssign} isLoading={submitting}>
-              Assign
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <FieldWrapper label="Driver name" htmlFor="driverName" required>
-            <Input id="driverName" value={driverName} onChange={(e) => setDriverName(e.target.value)} />
-          </FieldWrapper>
-          <FieldWrapper label="Driver phone" htmlFor="driverPhone" required>
-            <Input id="driverPhone" value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} />
-          </FieldWrapper>
-          <FieldWrapper label="Estimated arrival" htmlFor="eta" error={formError ?? undefined} required>
-            <Input id="eta" type="datetime-local" value={eta} onChange={(e) => setEta(e.target.value)} hasError={!!formError} />
-          </FieldWrapper>
-        </div>
-      </Modal>
     </div>
   );
 }

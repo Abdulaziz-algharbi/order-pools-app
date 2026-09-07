@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { UserRole } from "@/types/domain";
+import type { Panel } from "@/lib/panel";
 import {
   AlertIcon,
   BellIcon,
@@ -23,7 +23,7 @@ export interface NavItem {
   end?: boolean;
 }
 
-export const NAV_ITEMS: Record<UserRole, NavItem[]> = {
+export const NAV_ITEMS: Record<Panel, NavItem[]> = {
   retailer: [
     { label: "Dashboard", to: "/retailer", icon: HomeIcon, end: true },
     { label: "Browse Pools", to: "/retailer/pools", icon: PackageIcon },

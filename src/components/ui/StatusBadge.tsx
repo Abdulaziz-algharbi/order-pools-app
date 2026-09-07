@@ -1,92 +1,78 @@
 import { cn } from "@/lib/utils";
 
-type KnownStatus =
-  // Pool
-  | "active"
-  | "met"
-  | "delivery_assigned"
-  | "delivered"
-  | "closed"
-  // Supplier offer
-  | "pending_review"
-  | "negotiation"
-  | "accepted"
-  | "refused"
-  // Complaint
-  | "open"
-  | "in_review"
-  | "resolved"
-  | "dismissed"
-  // Delivery
-  | "preparing"
-  | "assigned"
-  | "in_transit"
-  // Supplier request
-  | "pending"
-  | "approved"
-  | "rejected";
+// Backend status enums are UPPER_SNAKE and reused verbatim across domains
+// (Pool, ProductOffer, Complaint, Delivery, PoolParticipant, SupplierRequest)
+// — most of that overlap reads the same way everywhere (APPROVED is always
+// good, REJECTED always bad, PENDING always amber), but "OPEN" means the
+// opposite thing for a Pool (still collecting — good) as for a Complaint
+// (not yet addressed — needs attention), so `domain` disambiguates only
+// where a bare status string would otherwise collide.
+export type StatusDomain = "pool" | "offer" | "complaint" | "delivery" | "participant" | "review";
 
-const STYLES: Record<KnownStatus, string> = {
-  active: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  met: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
-  delivery_assigned: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
-  delivered: "bg-slate-100 text-slate-700 ring-slate-500/20",
-  closed: "bg-slate-100 text-slate-500 ring-slate-500/20",
+const STYLES: Record<string, string> = {
+  OPEN: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  TARGET_REACHED: "bg-indigo-50 text-indigo-700 ring-indigo-600/20",
+  DISTRIBUTING: "bg-tertiary/10 text-tertiary ring-tertiary/20",
+  COMPLETED: "bg-slate-100 text-slate-700 ring-slate-500/20",
+  CANCELLED: "bg-red-50 text-red-700 ring-red-600/20",
 
-  pending_review: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  negotiation: "bg-tertiary/10 text-tertiary ring-tertiary/20",
-  accepted: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  refused: "bg-red-50 text-red-700 ring-red-600/20",
+  PENDING: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  NEGOTIATION: "bg-tertiary/10 text-tertiary ring-tertiary/20",
+  APPROVED: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  REJECTED: "bg-red-50 text-red-700 ring-red-600/20",
 
-  open: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  in_review: "bg-tertiary/10 text-tertiary ring-tertiary/20",
-  resolved: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  dismissed: "bg-slate-100 text-slate-500 ring-slate-500/20",
+  "UNDER REVIEW": "bg-tertiary/10 text-tertiary ring-tertiary/20",
+  RESOLVED: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
 
-  preparing: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  assigned: "bg-tertiary/10 text-tertiary ring-tertiary/20",
-  in_transit: "bg-tertiary/10 text-tertiary ring-tertiary/20",
+  DELIVERING: "bg-tertiary/10 text-tertiary ring-tertiary/20",
+  DELIVERED: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
 
-  pending: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  approved: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  rejected: "bg-red-50 text-red-700 ring-red-600/20",
+  PENDING_PAYMENT: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  WAITING: "bg-tertiary/10 text-tertiary ring-tertiary/20",
+  PAYMENT_FAILED: "bg-red-50 text-red-700 ring-red-600/20",
+  REFUNDED: "bg-slate-100 text-slate-700 ring-slate-500/20",
+
+  "complaint:OPEN": "bg-amber-50 text-amber-700 ring-amber-600/20",
 };
 
-const LABELS: Record<KnownStatus, string> = {
-  active: "Active",
-  met: "Met",
-  delivery_assigned: "Delivery Assigned",
-  delivered: "Delivered",
-  closed: "Closed",
+const LABELS: Record<string, string> = {
+  OPEN: "Open",
+  TARGET_REACHED: "Target Reached",
+  DISTRIBUTING: "Distributing",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
 
-  pending_review: "Pending Review",
-  negotiation: "Negotiation",
-  accepted: "Accepted",
-  refused: "Refused",
+  PENDING: "Pending",
+  NEGOTIATION: "Negotiation",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
 
-  open: "Open",
-  in_review: "In Review",
-  resolved: "Resolved",
-  dismissed: "Dismissed",
+  "UNDER REVIEW": "Under Review",
+  RESOLVED: "Resolved",
 
-  preparing: "Preparing",
-  assigned: "Assigned",
-  in_transit: "In Transit",
+  DELIVERING: "Delivering",
+  DELIVERED: "Delivered",
 
-  pending: "Pending",
-  approved: "Approved",
-  rejected: "Rejected",
+  PENDING_PAYMENT: "Payment Pending",
+  WAITING: "Waiting",
+  PAYMENT_FAILED: "Payment Failed",
+  REFUNDED: "Refunded",
+
+  "complaint:OPEN": "Open",
 };
+
+const FALLBACK_STYLE = "bg-slate-100 text-slate-700 ring-slate-500/20";
 
 interface StatusBadgeProps {
   status: string;
+  domain?: StatusDomain;
   className?: string;
 }
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const known = status as KnownStatus;
-  const style = STYLES[known] ?? "bg-slate-100 text-slate-700 ring-slate-500/20";
-  const label = LABELS[known] ?? status;
+export function StatusBadge({ status, domain, className }: StatusBadgeProps) {
+  const scopedKey = domain ? `${domain}:${status}` : status;
+  const style = STYLES[scopedKey] ?? STYLES[status] ?? FALLBACK_STYLE;
+  const label = LABELS[scopedKey] ?? LABELS[status] ?? status;
 
   return (
     <span

@@ -1,73 +1,91 @@
 /**
- * Mock API layer.
+ * API layer — thin, typed wrappers around the real backend
+ * (order-pools-backend `/api/v1/*`). Pages/components only ever import
+ * from this module, never call `lib/http` directly, so this stays the one
+ * place that knows each endpoint's request/response shape.
  *
- * Every export here returns a Promise and is shaped the way a real HTTP call
- * would be (params in, plain data out). This is the ONLY module that should
- * need to change when the real backend is wired up — pages and components
- * should never reach into `seed.ts` directly.
+ * Response envelopes are NOT uniform across the backend — most
+ * getById/list/update calls return `{ message, data }`, several `create`
+ * calls return the raw saved document, and `/auth/me` returns `{ user }`
+ * — each function below unwraps whatever its specific endpoint actually
+ * sends (see order-pools-backend docs), not a single assumed shape.
  */
+import { request } from "@/lib/http";
 import type {
+  Address,
   AppNotification,
   AppUser,
   Complaint,
+  ComplaintPriority,
   ComplaintStatus,
-  Join,
+  Delivery,
+  DeliveryStatus,
+  Payment,
   Pool,
   PoolParticipant,
-  SupplierOffer,
-  SupplierOfferStatus,
+  PoolStatus,
+  ProductOffer,
+  ProductOfferStatus,
+  ProductOfferUnit,
+  SupplierPaymentStatus,
   SupplierRequest,
-  SupplierUser,
 } from "@/types/domain";
-import {
-  admins,
-  complaints as seedComplaints,
-  joins as seedJoins,
-  notifications as seedNotifications,
-  poolParticipants as seedPoolParticipants,
-  pools as seedPools,
-  retailers,
-  supplierOffers as seedSupplierOffers,
-  supplierRequests as seedSupplierRequests,
-  suppliers,
-} from "@/mocks/seed";
 
-const LATENCY_MS = 350;
-
-function delay<T>(value: T, ms = LATENCY_MS): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
-function clone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value));
-}
-
-// In-memory mutable stores, seeded once per session.
-const pools = clone(seedPools);
-const participants = clone(seedPoolParticipants);
-const joins = clone(seedJoins);
-const offers = clone(seedSupplierOffers);
-const complaints = clone(seedComplaints);
-const notifications = clone(seedNotifications);
-const supplierRequests = clone(seedSupplierRequests);
-let supplierList: SupplierUser[] = clone(suppliers);
-
-const allUsers: AppUser[] = [...retailers, ...suppliers, ...admins];
-
-function genId(prefix: string): string {
-  return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
+interface Envelope<T> {
+  message: string;
+  data: T;
+  total?: number;
+  page?: number;
+  limit?: number;
 }
 
 // ---------------------------------------------------------------------------
-// Auth (mock only — no real backend yet)
+// Auth
 // ---------------------------------------------------------------------------
 
-export function getDemoAccounts(): Promise<AppUser[]> {
-  return delay(clone(allUsers), 150);
+export async function login(
+  email: string,
+  password: string,
+): Promise<{ accessToken: string; refreshToken: string }> {
+  return request("/auth/login", { method: "POST", body: { email, password }, auth: false });
 }
 
-export function findUserById(id: string): Promise<AppUser | undefined> {
-  return delay(clone(allUsers.find((u) => u.id === id)), 150);
+export async function logout(): Promise<void> {
+  await request("/auth/logout", { method: "POST" });
+}
+
+export async function fetchCurrentUser(): Promise<AppUser> {
+  const res = await request<{ user: AppUser }>("/auth/me");
+  return res.user;
+}
+
+// ---------------------------------------------------------------------------
+// Addresses
+// ---------------------------------------------------------------------------
+
+export interface CreateAddressInput {
+  location: string;
+  region: string;
+  city: string;
+  street?: string;
+}
+
+export async function listMyAddresses(): Promise<Address[]> {
+  const res = await request<Envelope<Address[]>>("/addresses");
+  return res.data;
+}
+
+export async function createAddress(input: CreateAddressInput): Promise<Address> {
+  return request<Address>("/addresses", { method: "POST", body: input });
+}
+
+// Unauthenticated on purpose — mirrors how a brand-new account creates its
+// first address before it has a token (see AuthController.register). Used
+// by createSupplierAccount() below so an admin can hand a new supplier an
+// address without first inventing a user_ref for a user that doesn't
+// exist yet.
+async function createUnlinkedAddress(input: CreateAddressInput): Promise<Address> {
+  return request<Address>("/addresses", { method: "POST", body: input, auth: false });
 }
 
 // ---------------------------------------------------------------------------
@@ -75,209 +93,226 @@ export function findUserById(id: string): Promise<AppUser | undefined> {
 // ---------------------------------------------------------------------------
 
 export interface PoolFilter {
-  status?: Pool["status"] | Pool["status"][];
-  supplierId?: string;
-  search?: string;
+  status?: PoolStatus | PoolStatus[];
 }
 
-function matchesPoolFilter(pool: Pool, filter?: PoolFilter): boolean {
-  if (!filter) return true;
-  if (filter.status) {
-    const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
-    if (!statuses.includes(pool.status)) return false;
-  }
-  if (filter.supplierId && pool.supplierId !== filter.supplierId) return false;
-  if (filter.search) {
-    const q = filter.search.toLowerCase();
-    if (
-      !pool.productName.toLowerCase().includes(q) &&
-      !pool.supplierName.toLowerCase().includes(q) &&
-      !pool.category.toLowerCase().includes(q)
-    ) {
-      return false;
-    }
-  }
-  return true;
+// The backend doesn't take a status query param (visibility is role-scoped
+// server-side, but status filtering within what's visible is left to the
+// caller) — filtered client-side over whatever the caller is allowed to see.
+export async function listPools(filter?: PoolFilter): Promise<Pool[]> {
+  const res = await request<Envelope<Pool[]>>("/pools");
+  const pools = [...res.data].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+  if (!filter?.status) return pools;
+  const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
+  return pools.filter((p) => statuses.includes(p.status));
 }
 
-export function listPools(filter?: PoolFilter): Promise<Pool[]> {
-  return delay(clone(pools.filter((p) => matchesPoolFilter(p, filter))));
+export async function getPool(id: string): Promise<Pool> {
+  const res = await request<Envelope<Pool>>(`/pools/${id}`);
+  return res.data;
 }
 
-export function getPool(id: string): Promise<Pool | undefined> {
-  return delay(clone(pools.find((p) => p.id === id)));
+export interface CreatePoolInput {
+  productoffer_ref: string;
+  currentQuantity: number;
+  minimumContribution: number;
+  pricePerUnit: number;
+  startDate?: string;
+  endDate: string;
 }
 
-export function listPoolParticipants(poolId: string): Promise<PoolParticipant[]> {
-  return delay(clone(participants.filter((p) => p.poolId === poolId)));
+// ADMIN only, and only from an APPROVED offer — the backend snapshots the
+// offer's display fields (name/description/image/unit) and its supplier's
+// company name onto the pool itself at creation time.
+export async function createPool(input: CreatePoolInput): Promise<Pool> {
+  return request<Pool>("/pools", { method: "POST", body: input });
+}
+
+export interface UpdatePoolInput {
+  currentQuantity?: number;
+  minimumContribution?: number;
+  pricePerUnit?: number;
+  startDate?: string;
+  endDate?: string;
+  status?: PoolStatus;
+  supplierPaymentStatus?: SupplierPaymentStatus;
+}
+
+export async function updatePool(id: string, patch: UpdatePoolInput): Promise<Pool> {
+  const res = await request<Envelope<Pool>>(`/pools/${id}`, { method: "PATCH", body: patch });
+  return res.data;
+}
+
+export async function expirePool(
+  id: string,
+): Promise<{ pool: Pool; refundsRequested: number; refundsFailed: number }> {
+  const res = await request<{
+    message: string;
+    data: Pool;
+    refundsRequested: number;
+    refundsFailed: number;
+  }>(`/pools/${id}/expire`, { method: "POST" });
+  return { pool: res.data, refundsRequested: res.refundsRequested, refundsFailed: res.refundsFailed };
+}
+
+// ---------------------------------------------------------------------------
+// Pool participants (joining/withdrawing) & payments
+// ---------------------------------------------------------------------------
+
+export async function listPoolParticipants(poolId: string): Promise<PoolParticipant[]> {
+  const res = await request<Envelope<PoolParticipant[]>>("/participants", {
+    query: { pool_ref: poolId },
+  });
+  return res.data;
+}
+
+// A retailer's own participation records across every pool they've joined.
+export async function listMyParticipants(): Promise<PoolParticipant[]> {
+  const res = await request<Envelope<PoolParticipant[]>>("/participants");
+  return res.data;
 }
 
 export interface JoinPoolInput {
-  poolId: string;
-  retailerId: string;
-  retailerName: string;
+  pool_ref: string;
+  address_ref: string;
   quantity: number;
 }
 
-export async function joinPool(input: JoinPoolInput): Promise<{ pool: Pool; join: Join }> {
-  const pool = pools.find((p) => p.id === input.poolId);
-  if (!pool) throw new Error("Pool not found");
-  if (pool.status !== "active") throw new Error("This pool is no longer accepting contributions");
-  if (input.quantity < pool.minContribution) {
-    throw new Error(`Minimum contribution is ${pool.minContribution} ${pool.unit}`);
-  }
-
-  const remaining = pool.targetQuantity - pool.currentQuantity;
-  const quantity = Math.min(input.quantity, remaining);
-
-  pool.currentQuantity += quantity;
-  pool.participantCount += 1;
-  if (pool.currentQuantity >= pool.targetQuantity) {
-    pool.status = "met";
-  }
-
-  const participant: PoolParticipant = {
-    poolId: pool.id,
-    retailerId: input.retailerId,
-    retailerName: input.retailerName,
-    quantity,
-    joinedAt: new Date().toISOString(),
-  };
-  participants.push(participant);
-
-  const join: Join = {
-    id: genId("join"),
-    poolId: pool.id,
-    retailerId: input.retailerId,
-    quantity,
-    totalPrice: Math.round(quantity * pool.unitPrice * 100) / 100,
-    joinedAt: participant.joinedAt,
-  };
-  joins.push(join);
-
-  return delay({ pool: clone(pool), join: clone(join) });
+export interface JoinPoolResult {
+  participant: PoolParticipant;
+  payment: { _id: string; amount: number; status: string };
+  checkoutUrl: string;
 }
 
-export function listJoinsByRetailer(retailerId: string): Promise<Join[]> {
-  return delay(clone(joins.filter((j) => j.retailerId === retailerId)));
+// Reserves the quantity and opens a Thawani checkout session — the caller
+// is expected to redirect the browser to `checkoutUrl` to actually pay.
+export async function joinPool(input: JoinPoolInput): Promise<JoinPoolResult> {
+  const res = await request<{
+    message: string;
+    data: PoolParticipant;
+    payment: { _id: string; amount: number; status: string };
+    checkoutUrl: string;
+  }>("/participants", { method: "POST", body: input });
+  return { participant: res.data, payment: res.payment, checkoutUrl: res.checkoutUrl };
 }
 
-export async function assignDelivery(
-  poolId: string,
-  driverName: string,
-  driverPhone: string,
-  estimatedArrival: string,
-): Promise<Pool> {
-  const pool = pools.find((p) => p.id === poolId);
-  if (!pool) throw new Error("Pool not found");
-  pool.status = "delivery_assigned";
-  pool.delivery = {
-    id: genId("del"),
-    poolId,
-    status: "assigned",
-    driverName,
-    driverPhone,
-    assignedAt: new Date().toISOString(),
-    estimatedArrival,
-    updates: [
-      {
-        id: genId("upd"),
-        timestamp: new Date().toISOString(),
-        message: `Driver ${driverName} assigned by admin.`,
-      },
-    ],
-  };
-  return delay(clone(pool));
+export async function withdrawParticipant(id: string): Promise<void> {
+  await request(`/participants/${id}`, { method: "DELETE" });
+}
+
+export async function getPayment(id: string): Promise<Payment> {
+  const res = await request<Envelope<Payment>>(`/payments/${id}`);
+  return res.data;
+}
+
+// Re-checks a payment's Thawani session and settles it if paid — this is
+// what the checkout success/cancel landing page calls to reconcile.
+export async function confirmPayment(id: string): Promise<Payment> {
+  const res = await request<Envelope<Payment>>(`/payments/${id}/confirm`, { method: "POST" });
+  return res.data;
+}
+
+export async function cancelPayment(id: string): Promise<Payment> {
+  const res = await request<Envelope<Payment>>(`/payments/${id}/cancel`, { method: "POST" });
+  return res.data;
 }
 
 // ---------------------------------------------------------------------------
-// Supplier offers
+// Deliveries
+// ---------------------------------------------------------------------------
+
+export async function listDeliveries(): Promise<Delivery[]> {
+  const res = await request<Envelope<Delivery[]>>("/deliveries");
+  return res.data;
+}
+
+export async function getDeliveryForPool(poolId: string): Promise<Delivery | undefined> {
+  const deliveries = await listDeliveries();
+  return deliveries.find((d) => d.pool_ref === poolId);
+}
+
+// ADMIN only. A pool must have already reached its target (TARGET_REACHED)
+// before a delivery can be created for it.
+export async function createDelivery(poolId: string): Promise<Delivery> {
+  return request<Delivery>("/deliveries", { method: "POST", body: { pool_ref: poolId } });
+}
+
+export async function updateDeliveryStatus(
+  id: string,
+  deliveryStatus: DeliveryStatus,
+): Promise<Delivery> {
+  const body: { deliveryStatus: DeliveryStatus; deliveredAt?: string } = { deliveryStatus };
+  if (deliveryStatus === "DELIVERED") body.deliveredAt = new Date().toISOString();
+  const res = await request<Envelope<Delivery>>(`/deliveries/${id}`, { method: "PATCH", body });
+  return res.data;
+}
+
+// ---------------------------------------------------------------------------
+// Product offers (supplier wholesale listings, admin-reviewed)
 // ---------------------------------------------------------------------------
 
 export interface OfferFilter {
-  status?: SupplierOfferStatus | SupplierOfferStatus[];
-  supplierId?: string;
+  status?: ProductOfferStatus | ProductOfferStatus[];
 }
 
-function matchesOfferFilter(offer: SupplierOffer, filter?: OfferFilter): boolean {
-  if (!filter) return true;
-  if (filter.status) {
-    const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
-    if (!statuses.includes(offer.status)) return false;
-  }
-  if (filter.supplierId && offer.supplierId !== filter.supplierId) return false;
-  return true;
+export async function listOffers(filter?: OfferFilter): Promise<ProductOffer[]> {
+  const res = await request<Envelope<ProductOffer[]>>("/offers");
+  const offers = [...res.data].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+  if (!filter?.status) return offers;
+  const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
+  return offers.filter((o) => statuses.includes(o.status));
 }
 
-export function listOffers(filter?: OfferFilter): Promise<SupplierOffer[]> {
-  return delay(clone(offers.filter((o) => matchesOfferFilter(o, filter))));
-}
-
-export function getOffer(id: string): Promise<SupplierOffer | undefined> {
-  return delay(clone(offers.find((o) => o.id === id)));
+export async function getOffer(id: string): Promise<ProductOffer> {
+  const res = await request<Envelope<ProductOffer>>(`/offers/${id}`);
+  return res.data;
 }
 
 export interface CreateOfferInput {
-  supplierId: string;
-  supplierName: string;
-  productName: string;
-  productDescription: string;
-  category: string;
-  targetQuantity: number;
-  unit: string;
-  minContribution: number;
-  unitPrice: number;
-  proposedDeadline: string;
+  name: string;
+  description: string;
+  brand?: string | null;
+  unit?: ProductOfferUnit;
+  images?: string | null;
+  wholeQuantity: number;
+  price: number;
 }
 
-export async function createOffer(input: CreateOfferInput): Promise<SupplierOffer> {
-  const offer: SupplierOffer = {
-    id: genId("offer"),
-    status: "pending_review",
-    submittedAt: new Date().toISOString(),
-    ...input,
-  };
-  offers.unshift(offer);
-  return delay(clone(offer));
+export async function createOffer(input: CreateOfferInput): Promise<ProductOffer> {
+  return request<ProductOffer>("/offers", { method: "POST", body: input });
 }
 
-export type OfferDecision = "accepted" | "negotiation" | "refused";
+export interface UpdateOwnOfferInput {
+  name?: string;
+  description?: string;
+  brand?: string | null;
+  unit?: ProductOfferUnit;
+  images?: string | null;
+  wholeQuantity?: number;
+  price?: number;
+}
 
-export async function decideOffer(
+// The owning SUPPLIER's edit surface — product details/commercial terms.
+export async function updateOwnOffer(id: string, patch: UpdateOwnOfferInput): Promise<ProductOffer> {
+  const res = await request<Envelope<ProductOffer>>(`/offers/${id}`, { method: "PATCH", body: patch });
+  return res.data;
+}
+
+// ADMIN's review surface — status/adminComment only.
+export async function reviewOffer(
   id: string,
-  decision: OfferDecision,
-  adminNote?: string,
-): Promise<SupplierOffer> {
-  const offer = offers.find((o) => o.id === id);
-  if (!offer) throw new Error("Offer not found");
-  offer.status = decision;
-  offer.decidedAt = new Date().toISOString();
-  if (adminNote) offer.adminNote = adminNote;
+  patch: { status: ProductOfferStatus; adminComment?: string },
+): Promise<ProductOffer> {
+  const res = await request<Envelope<ProductOffer>>(`/offers/${id}`, { method: "PATCH", body: patch });
+  return res.data;
+}
 
-  if (decision === "accepted") {
-    const pool: Pool = {
-      id: genId("pool"),
-      offerId: offer.id,
-      supplierId: offer.supplierId,
-      supplierName: offer.supplierName,
-      productName: offer.productName,
-      productDescription: offer.productDescription,
-      productImageUrl: offer.productImageUrl,
-      category: offer.category,
-      targetQuantity: offer.targetQuantity,
-      currentQuantity: 0,
-      unit: offer.unit,
-      minContribution: offer.minContribution,
-      unitPrice: offer.unitPrice,
-      startDate: new Date().toISOString(),
-      deadline: offer.proposedDeadline,
-      status: "active",
-      participantCount: 0,
-    };
-    pools.unshift(pool);
-  }
-
-  return delay(clone(offer));
+export async function deleteOffer(id: string): Promise<void> {
+  await request(`/offers/${id}`, { method: "DELETE" });
 }
 
 // ---------------------------------------------------------------------------
@@ -286,141 +321,154 @@ export async function decideOffer(
 
 export interface ComplaintFilter {
   status?: ComplaintStatus | ComplaintStatus[];
-  retailerId?: string;
 }
 
-function matchesComplaintFilter(c: Complaint, filter?: ComplaintFilter): boolean {
-  if (!filter) return true;
-  if (filter.status) {
-    const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
-    if (!statuses.includes(c.status)) return false;
-  }
-  if (filter.retailerId && c.retailerId !== filter.retailerId) return false;
-  return true;
-}
-
-export function listComplaints(filter?: ComplaintFilter): Promise<Complaint[]> {
-  return delay(clone(complaints.filter((c) => matchesComplaintFilter(c, filter))));
+export async function listComplaints(filter?: ComplaintFilter): Promise<Complaint[]> {
+  const res = await request<Envelope<Complaint[]>>("/complaints");
+  if (!filter?.status) return res.data;
+  const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
+  return res.data.filter((c) => statuses.includes(c.status));
 }
 
 export interface CreateComplaintInput {
-  retailerId: string;
-  retailerName: string;
-  poolId?: string;
-  subject: string;
+  pool_ref: string;
+  title: string;
   description: string;
+  priority?: ComplaintPriority;
 }
 
 export async function createComplaint(input: CreateComplaintInput): Promise<Complaint> {
-  const complaint: Complaint = {
-    id: genId("comp"),
-    status: "open",
-    createdAt: new Date().toISOString(),
-    ...input,
-  };
-  complaints.unshift(complaint);
-  return delay(clone(complaint));
+  return request<Complaint>("/complaints", { method: "POST", body: input });
 }
 
+// The filer's own edit surface.
+export async function updateOwnComplaint(
+  id: string,
+  patch: { title?: string; description?: string; priority?: ComplaintPriority },
+): Promise<Complaint> {
+  const res = await request<Envelope<Complaint>>(`/complaints/${id}`, { method: "PATCH", body: patch });
+  return res.data;
+}
+
+// ADMIN's response surface.
 export async function respondToComplaint(
   id: string,
-  response: string,
-  status: ComplaintStatus,
+  patch: { resolution?: string; status?: ComplaintStatus },
 ): Promise<Complaint> {
-  const complaint = complaints.find((c) => c.id === id);
-  if (!complaint) throw new Error("Complaint not found");
-  complaint.response = response;
-  complaint.respondedAt = new Date().toISOString();
-  complaint.status = status;
-  return delay(clone(complaint));
+  const res = await request<Envelope<Complaint>>(`/complaints/${id}`, { method: "PATCH", body: patch });
+  return res.data;
 }
 
 // ---------------------------------------------------------------------------
 // Notifications
 // ---------------------------------------------------------------------------
 
-export function listNotifications(userId: string): Promise<AppNotification[]> {
-  return delay(
-    clone(
-      notifications
-        .filter((n) => n.userId === userId)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    ),
+// Always scoped to the caller by the backend — there's no userId param to
+// pass; a non-admin's `recipients[]` also comes back redacted to just
+// their own entry.
+export async function listNotifications(): Promise<AppNotification[]> {
+  const res = await request<Envelope<AppNotification[]>>("/notifications");
+  return [...res.data].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 }
 
-export async function markNotificationRead(id: string): Promise<void> {
-  const n = notifications.find((n) => n.id === id);
-  if (n) n.read = true;
-  return delay(undefined, 100);
-}
-
-export async function markAllNotificationsRead(userId: string): Promise<void> {
-  notifications.filter((n) => n.userId === userId).forEach((n) => (n.read = true));
-  return delay(undefined, 100);
+export async function markNotificationRead(id: string, isRead = true): Promise<AppNotification> {
+  const res = await request<Envelope<AppNotification>>(`/notifications/${id}`, {
+    method: "PATCH",
+    body: { isRead },
+  });
+  return res.data;
 }
 
 // ---------------------------------------------------------------------------
-// Suppliers & retailers (admin management)
+// Users, suppliers & retailers (admin management)
 // ---------------------------------------------------------------------------
 
-export function listSuppliers(): Promise<SupplierUser[]> {
-  return delay(clone(supplierList));
+async function listUsers(): Promise<AppUser[]> {
+  const res = await request<Envelope<AppUser[]>>("/users");
+  return res.data;
 }
 
-export function listRetailers() {
-  return delay(clone(retailers));
+export async function getUserById(id: string): Promise<AppUser> {
+  const res = await request<{ message: string; data: AppUser }>(`/users/${id}`);
+  return res.data;
 }
 
-export interface CreateSupplierInput {
-  name: string;
+export async function listSuppliers(): Promise<AppUser[]> {
+  const users = await listUsers();
+  return users
+    .filter((u) => u.roles.includes("SUPPLIER"))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function listRetailers(): Promise<AppUser[]> {
+  const users = await listUsers();
+  return users
+    .filter((u) => u.roles.includes("RETAILER"))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export interface CreateSupplierAccountInput {
+  firstName: string;
+  lastName: string;
   email: string;
+  phoneNumber: string;
   companyName: string;
-  phone?: string;
-  address?: string;
+  password: string;
+  address: CreateAddressInput;
 }
 
-export async function createSupplier(input: CreateSupplierInput): Promise<SupplierUser> {
-  const supplier: SupplierUser = {
-    id: genId("sup"),
-    role: "supplier",
-    verified: true,
-    createdAt: new Date().toISOString(),
-    ...input,
-  };
-  supplierList = [supplier, ...supplierList];
-  return delay(clone(supplier));
+// Admin-created supplier accounts are pre-approved (skip the
+// supplier-request review flow) — the backend requires at least one
+// address on account creation, so this creates one (unlinked) first.
+export async function createSupplierAccount(input: CreateSupplierAccountInput): Promise<AppUser> {
+  const address = await createUnlinkedAddress(input.address);
+  return request<AppUser>("/users", {
+    method: "POST",
+    body: {
+      roles: ["SUPPLIER"],
+      firstName: input.firstName,
+      lastName: input.lastName,
+      email: input.email,
+      phoneNumber: input.phoneNumber,
+      companyName: input.companyName,
+      password: input.password,
+      addresses: [address._id],
+    },
+  });
 }
 
-export async function deleteSupplier(id: string): Promise<void> {
-  supplierList = supplierList.filter((s) => s.id !== id);
-  return delay(undefined, 200);
+export async function deleteUser(id: string): Promise<void> {
+  await request(`/users/${id}`, { method: "DELETE" });
 }
 
-export function listSupplierRequests(): Promise<SupplierRequest[]> {
-  return delay(clone(supplierRequests));
+// ---------------------------------------------------------------------------
+// Supplier requests (retailer -> supplier promotion)
+// ---------------------------------------------------------------------------
+
+export async function listSupplierRequests(): Promise<SupplierRequest[]> {
+  const res = await request<Envelope<SupplierRequest[]>>("/supplier-requests");
+  return [...res.data].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+export async function createSupplierRequest(description: string): Promise<SupplierRequest> {
+  const res = await request<{ message: string; data: SupplierRequest }>("/supplier-requests", {
+    method: "POST",
+    body: { description },
+  });
+  return res.data;
 }
 
 export async function decideSupplierRequest(
   id: string,
-  decision: "approved" | "rejected",
+  patch: { status: "APPROVED" | "REJECTED"; adminComment?: string },
 ): Promise<SupplierRequest> {
-  const req = supplierRequests.find((r) => r.id === id);
-  if (!req) throw new Error("Request not found");
-  req.status = decision;
-  if (decision === "approved") {
-    supplierList = [
-      {
-        id: genId("sup"),
-        role: "supplier",
-        name: req.applicantName,
-        email: req.applicantEmail,
-        companyName: req.companyName,
-        verified: true,
-        createdAt: new Date().toISOString(),
-      },
-      ...supplierList,
-    ];
-  }
-  return delay(clone(req));
+  const res = await request<Envelope<SupplierRequest>>(`/supplier-requests/${id}`, {
+    method: "PATCH",
+    body: patch,
+  });
+  return res.data;
 }

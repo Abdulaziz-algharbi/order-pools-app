@@ -1,16 +1,16 @@
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/config/nav";
-import type { UserRole } from "@/types/domain";
+import type { Panel } from "@/lib/panel";
 
-const ROLE_LABEL: Record<UserRole, string> = {
+const ROLE_LABEL: Record<Panel, string> = {
   retailer: "Retailer",
   supplier: "Supplier",
   admin: "Administrator",
 };
 
 interface SidebarProps {
-  role: UserRole;
+  role: Panel;
   onNavigate?: () => void;
 }
 

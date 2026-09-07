@@ -5,44 +5,44 @@ import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
-import type { SupplierOffer } from "@/types/domain";
+import type { ProductOffer } from "@/types/domain";
 
 export function AdminOffersHistoryPage() {
   const { data: offers, isLoading, error, refetch } = useFetch(
-    () => listOffers({ status: ["accepted", "refused"] }),
+    () => listOffers({ status: ["APPROVED", "REJECTED"] }),
     [],
   );
 
-  const sorted = [...(offers ?? [])].sort(
-    (a, b) => new Date(b.decidedAt ?? b.submittedAt).getTime() - new Date(a.decidedAt ?? a.submittedAt).getTime(),
-  );
-
-  const columns: Column<SupplierOffer>[] = [
-    { key: "product", header: "Product", render: (o) => (
-      <div>
-        <p className="font-medium text-primary">{o.productName}</p>
-        <p className="text-xs text-slate-400">{o.supplierName}</p>
-      </div>
-    ) },
-    { key: "quantity", header: "Target qty", render: (o) => `${formatNumber(o.targetQuantity)} ${o.unit}` },
-    { key: "price", header: "Unit price", render: (o) => formatCurrency(o.unitPrice) },
-    { key: "decided", header: "Decided", render: (o) => (o.decidedAt ? formatDate(o.decidedAt) : "—") },
-    { key: "status", header: "Status", render: (o) => <StatusBadge status={o.status} /> },
+  const columns: Column<ProductOffer>[] = [
+    {
+      key: "product",
+      header: "Product",
+      render: (o) => (
+        <div>
+          <p className="font-medium text-primary">{o.name}</p>
+          {o.brand && <p className="text-xs text-slate-400">{o.brand}</p>}
+        </div>
+      ),
+    },
+    { key: "quantity", header: "Quantity", render: (o) => `${formatNumber(o.wholeQuantity)} ${o.unit.toLowerCase()}` },
+    { key: "price", header: "Price", render: (o) => formatCurrency(o.price) },
+    { key: "updated", header: "Updated", render: (o) => formatDate(o.updatedAt) },
+    { key: "status", header: "Status", render: (o) => <StatusBadge status={o.status} domain="offer" /> },
   ];
 
   return (
     <div>
-      <PageHeader title="Offers History" description="Previously accepted or refused supplier offers." />
+      <PageHeader title="Offers History" description="Previously approved or rejected supplier offers." />
       {error ? (
         <ErrorState onRetry={refetch} />
       ) : (
         <DataTable
           columns={columns}
-          data={sorted}
-          rowKey={(o) => o.id}
+          data={offers ?? []}
+          rowKey={(o) => o._id}
           isLoading={isLoading}
           emptyTitle="No processed offers yet"
-          renderMobileTitle={(o) => o.productName}
+          renderMobileTitle={(o) => o.name}
         />
       )}
     </div>

@@ -4,6 +4,7 @@ import { ProtectedRoute } from "@/routes/ProtectedRoute";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { NotificationsPage } from "@/pages/shared/NotificationsPage";
+import { PaymentResultPage } from "@/pages/shared/PaymentResultPage";
 
 import { RetailerDashboard } from "@/pages/retailer/RetailerDashboard";
 import { PoolsBrowsePage } from "@/pages/retailer/PoolsBrowsePage";
@@ -37,6 +38,7 @@ import { AdminRetailersPage } from "@/pages/admin/AdminRetailersPage";
 export const router = createBrowserRouter([
   { path: "/", element: <RootRedirect /> },
   { path: "/login", element: <LoginPage /> },
+  { path: "/payments/:paymentId/result", element: <PaymentResultPage /> },
 
   {
     path: "/retailer",

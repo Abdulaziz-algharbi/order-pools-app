@@ -1,6 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { useFetch } from "@/hooks/useFetch";
-import { listJoinsByRetailer, listPools } from "@/mocks/api";
+import { listMyParticipants, listPools } from "@/mocks/api";
 import { useNotifications } from "@/hooks/useNotifications";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -12,30 +12,28 @@ import { Skeleton } from "@/components/ui/Spinner";
 import { LinkButton } from "@/components/ui/LinkButton";
 import { PackageIcon } from "@/components/ui/icons";
 import { poolProgress } from "@/lib/utils";
-import type { RetailerUser } from "@/types/domain";
 
 export function RetailerDashboard() {
   const { user } = useAuth();
-  const retailer = user as RetailerUser;
 
-  const { data: joins } = useFetch(() => listJoinsByRetailer(retailer.id), [retailer.id]);
+  const { data: participants } = useFetch(() => listMyParticipants(), []);
   const {
     data: pools,
     isLoading: poolsLoading,
     error: poolsError,
     refetch,
-  } = useFetch(() => listPools({ status: "active" }), []);
-  const { notifications } = useNotifications(retailer.id);
+  } = useFetch(() => listPools({ status: "OPEN" }), []);
+  const { notifications, unreadCount, isReadForUser } = useNotifications(user?._id);
 
-  const activeJoinCount = joins?.length ?? 0;
+  const activeJoinCount = participants?.length ?? 0;
   const closingSoon = (pools ?? [])
-    .filter((p) => poolProgress(p.currentQuantity, p.targetQuantity) >= 60)
+    .filter((p) => poolProgress(p.targetQuantity - p.currentQuantity, p.targetQuantity) >= 60)
     .slice(0, 3);
 
   return (
     <div className="space-y-8">
       <PageHeader
-        title={`Welcome back, ${retailer.businessName}`}
+        title={`Welcome back, ${user?.companyName ?? ""}`}
         description="Here's what needs your attention today."
       />
 
@@ -55,9 +53,7 @@ export function RetailerDashboard() {
         <Card>
           <CardContent>
             <p className="text-sm text-slate-500">Unread notifications</p>
-            <p className="mt-1 font-heading text-2xl font-semibold text-primary">
-              {notifications.filter((n) => !n.read).length}
-            </p>
+            <p className="mt-1 font-heading text-2xl font-semibold text-primary">{unreadCount}</p>
           </CardContent>
         </Card>
       </div>
@@ -90,10 +86,10 @@ export function RetailerDashboard() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {closingSoon.map((pool) => (
               <PoolCard
-                key={pool.id}
+                key={pool._id}
                 pool={pool}
                 action={
-                  <LinkButton to={`/retailer/pools/${pool.id}`} className="w-full">
+                  <LinkButton to={`/retailer/pools/${pool._id}`} className="w-full">
                     View & Join
                   </LinkButton>
                 }
@@ -111,7 +107,7 @@ export function RetailerDashboard() {
           ) : (
             <div className="divide-y divide-slate-100">
               {notifications.slice(0, 5).map((n) => (
-                <NotificationItem key={n.id} notification={n} />
+                <NotificationItem key={n._id} notification={n} isRead={isReadForUser(n)} />
               ))}
             </div>
           )}

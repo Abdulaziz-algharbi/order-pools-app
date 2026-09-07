@@ -1,6 +1,5 @@
-import { useAuth } from "@/context/AuthContext";
 import { useFetch } from "@/hooks/useFetch";
-import { listJoinsByRetailer, listPools } from "@/mocks/api";
+import { listDeliveries, listMyParticipants, listPools } from "@/mocks/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -9,34 +8,32 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Spinner";
 import { TruckIcon, CheckIcon } from "@/components/ui/icons";
 import { formatDateTime, formatNumber } from "@/lib/utils";
-import type { Pool, RetailerUser } from "@/types/domain";
+import type { Pool } from "@/types/domain";
 import { cn } from "@/lib/utils";
 
 const DELIVERY_STAGES: { key: Pool["status"]; label: string }[] = [
-  { key: "met", label: "Target reached" },
-  { key: "delivery_assigned", label: "Driver assigned" },
-  { key: "delivered", label: "Delivered" },
+  { key: "TARGET_REACHED", label: "Target reached" },
+  { key: "DISTRIBUTING", label: "Distributing" },
+  { key: "COMPLETED", label: "Delivered" },
 ];
 
 function stageIndex(status: Pool["status"]): number {
-  if (status === "met") return 0;
-  if (status === "delivery_assigned") return 1;
-  if (status === "delivered" || status === "closed") return 2;
+  if (status === "TARGET_REACHED") return 0;
+  if (status === "DISTRIBUTING") return 1;
+  if (status === "COMPLETED") return 2;
   return -1;
 }
 
 export function TrackDeliveryPage() {
-  const { user } = useAuth();
-  const retailer = user as RetailerUser;
-
-  const { data: joins, isLoading: joinsLoading } = useFetch(() => listJoinsByRetailer(retailer.id), [retailer.id]);
+  const { data: participants, isLoading: participantsLoading } = useFetch(() => listMyParticipants(), []);
   const { data: pools, isLoading: poolsLoading, error, refetch } = useFetch(() => listPools(), []);
+  const { data: deliveries } = useFetch(() => listDeliveries(), []);
 
-  const isLoading = joinsLoading || poolsLoading;
+  const isLoading = participantsLoading || poolsLoading;
   const trackablePools = (pools ?? []).filter(
     (p) =>
-      ["met", "delivery_assigned", "delivered", "closed"].includes(p.status) &&
-      (joins ?? []).some((j) => j.poolId === p.id),
+      ["TARGET_REACHED", "DISTRIBUTING", "COMPLETED", "CANCELLED"].includes(p.status) &&
+      (participants ?? []).some((part) => part.pool_ref === p._id),
   );
 
   return (
@@ -61,89 +58,82 @@ export function TrackDeliveryPage() {
         <div className="space-y-4">
           {trackablePools.map((pool) => {
             const idx = stageIndex(pool.status);
-            const myJoin = joins?.find((j) => j.poolId === pool.id);
+            const myParticipation = participants?.find((p) => p.pool_ref === pool._id);
+            const delivery = deliveries?.find((d) => d.pool_ref === pool._id);
             return (
-              <Card key={pool.id}>
+              <Card key={pool._id}>
                 <CardContent className="space-y-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                        {pool.supplierName}
-                      </p>
+                      {pool.supplierName && (
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                          {pool.supplierName}
+                        </p>
+                      )}
                       <h3 className="font-heading text-base font-semibold text-primary">{pool.productName}</h3>
-                      {myJoin && (
+                      {myParticipation && (
                         <p className="mt-0.5 text-sm text-slate-500">
-                          Your contribution: {formatNumber(myJoin.quantity)} {pool.unit}
+                          Your contribution: {formatNumber(myParticipation.quantity)} {pool.unit.toLowerCase()}
                         </p>
                       )}
                     </div>
-                    <StatusBadge status={pool.status} />
+                    <StatusBadge status={pool.status} domain="pool" />
                   </div>
 
-                  <div className="flex items-center">
-                    {DELIVERY_STAGES.map((stage, i) => (
-                      <div key={stage.key} className="flex flex-1 items-center last:flex-none">
-                        <div className="flex flex-col items-center gap-1.5">
-                          <div
-                            className={cn(
-                              "flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold",
-                              i <= idx
-                                ? "border-secondary bg-secondary text-white"
-                                : "border-slate-200 bg-white text-slate-400",
-                            )}
-                          >
-                            {i < idx || (i === idx && pool.status === "delivered") ? (
-                              <CheckIcon className="h-4 w-4" />
-                            ) : (
-                              i + 1
-                            )}
+                  {pool.status === "CANCELLED" ? (
+                    <p className="text-sm text-slate-500">
+                      This pool was cancelled before reaching its target. Any payment made has been refunded or is
+                      being processed.
+                    </p>
+                  ) : (
+                    <div className="flex items-center">
+                      {DELIVERY_STAGES.map((stage, i) => (
+                        <div key={stage.key} className="flex flex-1 items-center last:flex-none">
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div
+                              className={cn(
+                                "flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold",
+                                i <= idx
+                                  ? "border-secondary bg-secondary text-white"
+                                  : "border-slate-200 bg-white text-slate-400",
+                              )}
+                            >
+                              {i < idx || (i === idx && pool.status === "COMPLETED") ? (
+                                <CheckIcon className="h-4 w-4" />
+                              ) : (
+                                i + 1
+                              )}
+                            </div>
+                            <span
+                              className={cn(
+                                "w-20 text-center text-xs",
+                                i <= idx ? "font-medium text-primary" : "text-slate-400",
+                              )}
+                            >
+                              {stage.label}
+                            </span>
                           </div>
-                          <span
-                            className={cn(
-                              "w-20 text-center text-xs",
-                              i <= idx ? "font-medium text-primary" : "text-slate-400",
-                            )}
-                          >
-                            {stage.label}
-                          </span>
+                          {i < DELIVERY_STAGES.length - 1 && (
+                            <div className={cn("mx-1 h-0.5 flex-1", i < idx ? "bg-secondary" : "bg-slate-200")} />
+                          )}
                         </div>
-                        {i < DELIVERY_STAGES.length - 1 && (
-                          <div className={cn("mx-1 h-0.5 flex-1", i < idx ? "bg-secondary" : "bg-slate-200")} />
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
 
-                  {pool.delivery && (
+                  {delivery && (
                     <div className="rounded-lg bg-slate-50 p-4 text-sm">
-                      {pool.delivery.driverName && (
-                        <p className="text-slate-600">
-                          Driver: <span className="font-medium text-primary">{pool.delivery.driverName}</span>
-                          {pool.delivery.driverPhone && ` · ${pool.delivery.driverPhone}`}
-                        </p>
-                      )}
-                      {pool.delivery.estimatedArrival && pool.delivery.status !== "delivered" && (
-                        <p className="mt-1 text-slate-600">
-                          Estimated arrival:{" "}
-                          <span className="font-medium text-primary">{formatDateTime(pool.delivery.estimatedArrival)}</span>
-                        </p>
-                      )}
-                      {pool.delivery.deliveredAt && (
-                        <p className="mt-1 text-slate-600">
-                          Delivered on{" "}
-                          <span className="font-medium text-primary">{formatDateTime(pool.delivery.deliveredAt)}</span>
-                        </p>
-                      )}
-                      {pool.delivery.updates.length > 0 && (
-                        <ul className="mt-3 space-y-1.5 border-t border-slate-200 pt-3">
-                          {pool.delivery.updates.map((u) => (
-                            <li key={u.id} className="flex justify-between gap-3 text-xs text-slate-500">
-                              <span>{u.message}</span>
-                              <span className="shrink-0">{formatDateTime(u.timestamp)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+                      <p className="text-slate-600">
+                        Delivery status: <span className="font-medium text-primary">{delivery.deliveryStatus}</span>
+                      </p>
+                      {delivery.deliveryStatus === "DELIVERED" &&
+                        delivery.deliveredAt &&
+                        delivery.deliveredAt !== "Not Set" && (
+                          <p className="mt-1 text-slate-600">
+                            Delivered on{" "}
+                            <span className="font-medium text-primary">{formatDateTime(delivery.deliveredAt)}</span>
+                          </p>
+                        )}
                     </div>
                   )}
                 </CardContent>

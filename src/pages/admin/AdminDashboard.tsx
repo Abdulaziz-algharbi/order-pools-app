@@ -6,24 +6,22 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { LinkButton } from "@/components/ui/LinkButton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Skeleton } from "@/components/ui/Spinner";
-import type { AdminUser } from "@/types/domain";
 
 export function AdminDashboard() {
   const { user } = useAuth();
-  const admin = user as AdminUser;
 
   const { data: offers, isLoading: offersLoading } = useFetch(
-    () => listOffers({ status: ["pending_review", "negotiation"] }),
+    () => listOffers({ status: ["PENDING", "NEGOTIATION"] }),
     [],
   );
   const { data: complaints, isLoading: complaintsLoading } = useFetch(
-    () => listComplaints({ status: ["open", "in_review"] }),
+    () => listComplaints({ status: ["OPEN", "UNDER REVIEW"] }),
     [],
   );
-  const { data: metPools, isLoading: metLoading } = useFetch(() => listPools({ status: "met" }), []);
+  const { data: metPools, isLoading: metLoading } = useFetch(() => listPools({ status: "TARGET_REACHED" }), []);
   const { data: requests, isLoading: requestsLoading } = useFetch(() => listSupplierRequests(), []);
 
-  const pendingRequests = (requests ?? []).filter((r) => r.status === "pending");
+  const pendingRequests = (requests ?? []).filter((r) => r.status === "PENDING");
   const isLoading = offersLoading || complaintsLoading || metLoading || requestsLoading;
 
   const attentionItems = [
@@ -34,10 +32,10 @@ export function AdminDashboard() {
       cta: "Review offers",
     },
     {
-      label: "Pools met — ready for delivery assignment",
+      label: "Pools met — ready to start delivery",
       count: metPools?.length ?? 0,
       to: "/admin/met-pools",
-      cta: "Assign delivery",
+      cta: "Start delivery",
     },
     {
       label: "Open complaints",
@@ -55,7 +53,10 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title={`Welcome back, ${admin.name}`} description="Here's what requires your attention right now." />
+      <PageHeader
+        title={`Welcome back, ${user?.companyName ?? ""}`}
+        description="Here's what requires your attention right now."
+      />
 
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -89,12 +90,11 @@ export function AdminDashboard() {
           ) : (
             <div className="divide-y divide-slate-100">
               {offers!.slice(0, 5).map((o) => (
-                <div key={o.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                <div key={o._id} className="flex items-center justify-between gap-3 px-5 py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-primary">{o.productName}</p>
-                    <p className="text-xs text-slate-400">{o.supplierName}</p>
+                    <p className="truncate text-sm font-medium text-primary">{o.name}</p>
                   </div>
-                  <StatusBadge status={o.status} />
+                  <StatusBadge status={o.status} domain="offer" />
                 </div>
               ))}
             </div>

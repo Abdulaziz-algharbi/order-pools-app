@@ -1,4 +1,3 @@
-import { useAuth } from "@/context/AuthContext";
 import { useFetch } from "@/hooks/useFetch";
 import { listPools } from "@/mocks/api";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -8,16 +7,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Spinner";
 import { PackageIcon } from "@/components/ui/icons";
-import type { SupplierUser } from "@/types/domain";
 
 export function SupplierPoolsPage() {
-  const { user } = useAuth();
-  const supplier = user as SupplierUser;
-
-  const { data: pools, isLoading, error, refetch } = useFetch(
-    () => listPools({ supplierId: supplier.id, status: "active" }),
-    [supplier.id],
-  );
+  const { data: pools, isLoading, error, refetch } = useFetch(() => listPools({ status: "OPEN" }), []);
 
   return (
     <div>
@@ -41,10 +33,10 @@ export function SupplierPoolsPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {pools!.map((pool) => (
             <PoolCard
-              key={pool.id}
+              key={pool._id}
               pool={pool}
               action={
-                <LinkButton to={`/supplier/pools/${pool.id}`} variant="outline" className="w-full">
+                <LinkButton to={`/supplier/pools/${pool._id}`} variant="outline" className="w-full">
                   View details
                 </LinkButton>
               }

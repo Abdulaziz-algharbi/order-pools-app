@@ -1,39 +1,35 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
 import { createOffer } from "@/mocks/api";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { FieldWrapper, Input, Select, Textarea } from "@/components/ui/Field";
-import type { SupplierUser } from "@/types/domain";
+import { ApiError } from "@/lib/http";
+import type { ProductOfferUnit } from "@/types/domain";
 
-const CATEGORIES = ["Grocery", "Household", "Beauty", "Electronics", "Textiles", "Other"];
+const UNITS: ProductOfferUnit[] = ["PIECE", "KG", "BOX", "CARTON"];
 
 interface FormState {
-  productName: string;
-  productDescription: string;
-  category: string;
-  targetQuantity: string;
-  unit: string;
-  minContribution: string;
-  unitPrice: string;
-  proposedDeadline: string;
+  name: string;
+  description: string;
+  brand: string;
+  unit: ProductOfferUnit;
+  images: string;
+  wholeQuantity: string;
+  price: string;
 }
 
 const initialState: FormState = {
-  productName: "",
-  productDescription: "",
-  category: CATEGORIES[0],
-  targetQuantity: "",
-  unit: "",
-  minContribution: "",
-  unitPrice: "",
-  proposedDeadline: "",
+  name: "",
+  description: "",
+  brand: "",
+  unit: "PIECE",
+  images: "",
+  wholeQuantity: "",
+  price: "",
 };
 
 export function CreateOfferPage() {
-  const { user } = useAuth();
-  const supplier = user as SupplierUser;
   const navigate = useNavigate();
 
   const [form, setForm] = useState<FormState>(initialState);
@@ -47,18 +43,12 @@ export function CreateOfferPage() {
 
   const validate = (): boolean => {
     const next: Partial<Record<keyof FormState, string>> = {};
-    if (!form.productName.trim()) next.productName = "Product name is required.";
-    if (!form.productDescription.trim()) next.productDescription = "Description is required.";
-    if (!form.unit.trim()) next.unit = "Unit is required (e.g. bottles, sacks).";
-    const target = Number(form.targetQuantity);
-    if (!target || target <= 0) next.targetQuantity = "Enter a target quantity greater than 0.";
-    const minContrib = Number(form.minContribution);
-    if (!minContrib || minContrib <= 0) next.minContribution = "Enter a minimum contribution greater than 0.";
-    else if (target && minContrib > target) next.minContribution = "Cannot exceed the target quantity.";
-    const price = Number(form.unitPrice);
-    if (!price || price <= 0) next.unitPrice = "Enter a unit price greater than 0.";
-    if (!form.proposedDeadline) next.proposedDeadline = "Proposed deadline is required.";
-    else if (new Date(form.proposedDeadline).getTime() <= Date.now()) next.proposedDeadline = "Deadline must be in the future.";
+    if (!form.name.trim()) next.name = "Product name is required.";
+    if (!form.description.trim()) next.description = "Description is required.";
+    const quantity = Number(form.wholeQuantity);
+    if (!quantity || quantity <= 0) next.wholeQuantity = "Enter a quantity greater than 0.";
+    const price = Number(form.price);
+    if (!price || price <= 0) next.price = "Enter a price greater than 0.";
 
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -72,20 +62,17 @@ export function CreateOfferPage() {
     setSubmitting(true);
     try {
       await createOffer({
-        supplierId: supplier.id,
-        supplierName: supplier.companyName,
-        productName: form.productName.trim(),
-        productDescription: form.productDescription.trim(),
-        category: form.category,
-        targetQuantity: Number(form.targetQuantity),
-        unit: form.unit.trim(),
-        minContribution: Number(form.minContribution),
-        unitPrice: Number(form.unitPrice),
-        proposedDeadline: new Date(form.proposedDeadline).toISOString(),
+        name: form.name.trim(),
+        description: form.description.trim(),
+        brand: form.brand.trim() || undefined,
+        unit: form.unit,
+        images: form.images.trim() || undefined,
+        wholeQuantity: Number(form.wholeQuantity),
+        price: Number(form.price),
       });
       navigate("/supplier/offers");
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Could not submit offer.");
+      setSubmitError(err instanceof ApiError ? err.message : "Could not submit offer.");
     } finally {
       setSubmitting(false);
     }
@@ -101,81 +88,63 @@ export function CreateOfferPage() {
         <CardContent>
           <h1 className="mb-1 font-heading text-xl font-semibold text-primary">New supplier offer</h1>
           <p className="mb-6 text-sm text-slate-500">
-            This will be sent to an administrator for review before it becomes an active pool.
+            This will be sent to an administrator for review before it can become an active pool.
           </p>
 
           <form className="space-y-4" onSubmit={handleSubmit} noValidate>
-            <FieldWrapper label="Product name" htmlFor="productName" error={errors.productName} required>
-              <Input id="productName" value={form.productName} onChange={update("productName")} hasError={!!errors.productName} />
+            <FieldWrapper label="Product name" htmlFor="name" error={errors.name} required>
+              <Input id="name" value={form.name} onChange={update("name")} hasError={!!errors.name} />
             </FieldWrapper>
 
-            <FieldWrapper label="Description" htmlFor="productDescription" error={errors.productDescription} required>
+            <FieldWrapper label="Brand" htmlFor="brand" hint="Optional">
+              <Input id="brand" value={form.brand} onChange={update("brand")} />
+            </FieldWrapper>
+
+            <FieldWrapper label="Description" htmlFor="description" error={errors.description} required>
               <Textarea
-                id="productDescription"
+                id="description"
                 rows={3}
-                value={form.productDescription}
-                onChange={update("productDescription")}
-                hasError={!!errors.productDescription}
+                value={form.description}
+                onChange={update("description")}
+                hasError={!!errors.description}
               />
             </FieldWrapper>
 
-            <FieldWrapper label="Category" htmlFor="category" required>
-              <Select id="category" value={form.category} onChange={update("category")}>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </Select>
+            <FieldWrapper label="Image URL" htmlFor="images" hint="Optional">
+              <Input id="images" value={form.images} onChange={update("images")} placeholder="https://…" />
             </FieldWrapper>
 
             <div className="grid grid-cols-2 gap-4">
-              <FieldWrapper label="Target quantity" htmlFor="targetQuantity" error={errors.targetQuantity} required>
+              <FieldWrapper label="Quantity" htmlFor="wholeQuantity" error={errors.wholeQuantity} required>
                 <Input
-                  id="targetQuantity"
+                  id="wholeQuantity"
                   type="number"
                   min={1}
-                  value={form.targetQuantity}
-                  onChange={update("targetQuantity")}
-                  hasError={!!errors.targetQuantity}
+                  value={form.wholeQuantity}
+                  onChange={update("wholeQuantity")}
+                  hasError={!!errors.wholeQuantity}
                 />
               </FieldWrapper>
-              <FieldWrapper label="Unit" htmlFor="unit" error={errors.unit} hint="e.g. bottles, sacks, units" required>
-                <Input id="unit" value={form.unit} onChange={update("unit")} hasError={!!errors.unit} />
+              <FieldWrapper label="Unit" htmlFor="unit" required>
+                <Select id="unit" value={form.unit} onChange={update("unit")}>
+                  {UNITS.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </Select>
               </FieldWrapper>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <FieldWrapper label="Minimum contribution" htmlFor="minContribution" error={errors.minContribution} required>
-                <Input
-                  id="minContribution"
-                  type="number"
-                  min={1}
-                  value={form.minContribution}
-                  onChange={update("minContribution")}
-                  hasError={!!errors.minContribution}
-                />
-              </FieldWrapper>
-              <FieldWrapper label="Unit price (USD)" htmlFor="unitPrice" error={errors.unitPrice} required>
-                <Input
-                  id="unitPrice"
-                  type="number"
-                  min={0.01}
-                  step="0.01"
-                  value={form.unitPrice}
-                  onChange={update("unitPrice")}
-                  hasError={!!errors.unitPrice}
-                />
-              </FieldWrapper>
-            </div>
-
-            <FieldWrapper label="Proposed deadline" htmlFor="proposedDeadline" error={errors.proposedDeadline} required>
+            <FieldWrapper label="Price per unit (OMR)" htmlFor="price" error={errors.price} required>
               <Input
-                id="proposedDeadline"
-                type="date"
-                value={form.proposedDeadline}
-                onChange={update("proposedDeadline")}
-                hasError={!!errors.proposedDeadline}
+                id="price"
+                type="number"
+                min={0.01}
+                step="0.01"
+                value={form.price}
+                onChange={update("price")}
+                hasError={!!errors.price}
               />
             </FieldWrapper>
 
