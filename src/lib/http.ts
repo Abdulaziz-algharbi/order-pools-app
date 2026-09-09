@@ -69,7 +69,13 @@ async function refreshAccessToken(): Promise<boolean> {
 }
 
 function buildUrl(path: string, query?: RequestOptions["query"]): string {
-  const url = new URL(`${BASE_URL}${path}`);
+  // The base is `window.location.origin` because VITE_API_BASE_URL may be
+  // a relative path (e.g. "/api/v1" behind an nginx reverse proxy) — the
+  // one-argument `new URL()` form only accepts an absolute URL and throws
+  // otherwise. Passing a base is a no-op when BASE_URL is already
+  // absolute (e.g. local dev's http://localhost:8000/api/v1), so this
+  // works for both.
+  const url = new URL(`${BASE_URL}${path}`, window.location.origin);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined) url.searchParams.set(key, String(value));
