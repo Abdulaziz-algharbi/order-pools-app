@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { defaultPanelFor } from "@/lib/panel";
 import { ApiError } from "@/lib/http";
@@ -75,6 +75,12 @@ export function LoginPage() {
               Sign in
             </Button>
           </form>
+          <p className="mt-4 text-center text-sm text-slate-500">
+            New here?{" "}
+            <Link to="/signup" className="font-medium text-tertiary hover:underline">
+              Create an account
+            </Link>
+          </p>
         </div>
       </div>
     </div>

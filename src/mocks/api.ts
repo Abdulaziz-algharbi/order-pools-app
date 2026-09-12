@@ -50,6 +50,26 @@ export async function login(
   return request("/auth/login", { method: "POST", body: { email, password }, auth: false });
 }
 
+export interface RegisterInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  companyName: string;
+  password: string;
+  /** Backend requires at least one already-created address id at registration time. */
+  addresses: string[];
+}
+
+// Every account starts RETAILER-only (see AuthController.register) — there
+// is no way to self-register as SUPPLIER; that's a separate promotion via
+// createSupplierRequest() once signed in.
+export async function register(
+  input: RegisterInput,
+): Promise<{ accessToken: string; refreshToken: string }> {
+  return request("/auth/register", { method: "POST", body: input, auth: false });
+}
+
 export async function logout(): Promise<void> {
   await request("/auth/logout", { method: "POST" });
 }
@@ -81,10 +101,9 @@ export async function createAddress(input: CreateAddressInput): Promise<Address>
 
 // Unauthenticated on purpose — mirrors how a brand-new account creates its
 // first address before it has a token (see AuthController.register). Used
-// by createSupplierAccount() below so an admin can hand a new supplier an
-// address without first inventing a user_ref for a user that doesn't
-// exist yet.
-async function createUnlinkedAddress(input: CreateAddressInput): Promise<Address> {
+// by register() (via SignupPage) and createSupplierAccount() below, both
+// of which need an address id before a user/token exists to own it.
+export async function createUnlinkedAddress(input: CreateAddressInput): Promise<Address> {
   return request<Address>("/addresses", { method: "POST", body: input, auth: false });
 }
 

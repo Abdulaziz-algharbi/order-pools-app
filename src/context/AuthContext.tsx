@@ -9,12 +9,19 @@ import {
 } from "react";
 import type { AppUser } from "@/types/domain";
 import { getAccessToken, clearTokens, setTokens } from "@/lib/tokenStore";
-import { fetchCurrentUser, login as apiLogin, logout as apiLogout } from "@/mocks/api";
+import {
+  fetchCurrentUser,
+  login as apiLogin,
+  logout as apiLogout,
+  register as apiRegister,
+  type RegisterInput,
+} from "@/mocks/api";
 
 interface AuthContextValue {
   user: AppUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  signup: (input: RegisterInput) => Promise<void>;
   logout: () => void;
 }
 
@@ -55,6 +62,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me);
   }, []);
 
+  const signup = useCallback(async (input: RegisterInput) => {
+    const { accessToken, refreshToken } = await apiRegister(input);
+    setTokens(accessToken, refreshToken);
+    const me = await fetchCurrentUser();
+    setUser(me);
+  }, []);
+
   const logout = useCallback(() => {
     apiLogout().catch(() => {
       // Best-effort — the tokens are cleared locally regardless.
@@ -64,8 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, isLoading, login, logout }),
-    [user, isLoading, login, logout],
+    () => ({ user, isLoading, login, signup, logout }),
+    [user, isLoading, login, signup, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

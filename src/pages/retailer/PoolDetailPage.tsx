@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
 import { createAddress, getPool, joinPool, listMyAddresses } from "@/mocks/api";
+import { AddressFields, emptyAddressFields } from "@/components/domain/AddressFields";
 import { PoolOverview } from "@/components/domain/PoolOverview";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -22,7 +23,7 @@ export function PoolDetailPage() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressesLoading, setAddressesLoading] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState("");
-  const [newAddress, setNewAddress] = useState({ location: "", region: "", city: "", street: "" });
+  const [newAddress, setNewAddress] = useState(emptyAddressFields);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
@@ -168,29 +169,11 @@ export function PoolDetailPage() {
                 ))}
               </Select>
             ) : (
-              <div className="space-y-2 rounded-lg border border-slate-200 p-3">
-                <p className="text-xs text-slate-500">You don't have a saved address yet — add one to continue.</p>
-                <Input
-                  placeholder="Map link (location URL)"
-                  value={newAddress.location}
-                  onChange={(e) => setNewAddress((a) => ({ ...a, location: e.target.value }))}
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    placeholder="City"
-                    value={newAddress.city}
-                    onChange={(e) => setNewAddress((a) => ({ ...a, city: e.target.value }))}
-                  />
-                  <Input
-                    placeholder="Region"
-                    value={newAddress.region}
-                    onChange={(e) => setNewAddress((a) => ({ ...a, region: e.target.value }))}
-                  />
-                </div>
-                <Input
-                  placeholder="Street (optional)"
-                  value={newAddress.street}
-                  onChange={(e) => setNewAddress((a) => ({ ...a, street: e.target.value }))}
+              <div className="rounded-lg border border-slate-200 p-3">
+                <AddressFields
+                  value={newAddress}
+                  onChange={setNewAddress}
+                  hint="You don't have a saved address yet — add one to continue."
                 />
               </div>
             )}

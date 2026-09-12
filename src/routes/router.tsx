@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 import { RootRedirect } from "@/routes/RootRedirect";
 import { ProtectedRoute } from "@/routes/ProtectedRoute";
 import { LoginPage } from "@/pages/auth/LoginPage";
+import { SignupPage } from "@/pages/auth/SignupPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { NotificationsPage } from "@/pages/shared/NotificationsPage";
 import { PaymentResultPage } from "@/pages/shared/PaymentResultPage";
@@ -38,6 +39,7 @@ import { AdminRetailersPage } from "@/pages/admin/AdminRetailersPage";
 export const router = createBrowserRouter([
   { path: "/", element: <RootRedirect /> },
   { path: "/login", element: <LoginPage /> },
+  { path: "/signup", element: <SignupPage /> },
   { path: "/payments/:paymentId/result", element: <PaymentResultPage /> },
 
   {
