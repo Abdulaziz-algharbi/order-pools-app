@@ -28,6 +28,9 @@ import type {
   ProductOfferStatus,
   ProductOfferUnit,
   SupplierPaymentStatus,
+  SupplierPayout,
+  SupplierPayoutStatus,
+  SupplierRemoveRequest,
   SupplierRequest,
 } from "@/types/domain";
 
@@ -226,12 +229,15 @@ export async function getPayment(id: string): Promise<Payment> {
   return res.data;
 }
 
-// Always scoped to the caller's own payments server-side (ADMIN sees
-// every payment instead, but nothing here calls this as an admin).
+// Role-scoped server-side: a non-admin only ever sees their own payments;
+// ADMIN sees every payment platform-wide (AdminPaymentsPage uses the same
+// call under the listPayments alias below for that reason).
 export async function listMyPayments(): Promise<Payment[]> {
   const res = await request<Envelope<Payment[]>>("/payments");
   return res.data;
 }
+
+export const listPayments = listMyPayments;
 
 // Re-checks a payment's Thawani session and settles it if paid — this is
 // what the checkout success/cancel landing page calls to reconcile.
@@ -242,6 +248,22 @@ export async function confirmPayment(id: string): Promise<Payment> {
 
 export async function cancelPayment(id: string): Promise<Payment> {
   const res = await request<Envelope<Payment>>(`/payments/${id}/cancel`, { method: "POST" });
+  return res.data;
+}
+
+// ADMIN only. Re-requests a failed refund against Thawani — only valid
+// from REFUND_FAILED.
+export async function retryRefund(id: string): Promise<Payment> {
+  const res = await request<Envelope<Payment>>(`/payments/${id}/retry-refund`, { method: "POST" });
+  return res.data;
+}
+
+// ADMIN only. A deliberately manual confirmation (Thawani's refund-status
+// response schema isn't confirmed from documentation — see
+// thawani.gateway.ts) — only valid from REFUND_PENDING, after the admin has
+// checked the Thawani merchant dashboard themselves.
+export async function confirmRefund(id: string): Promise<Payment> {
+  const res = await request<Envelope<Payment>>(`/payments/${id}/confirm-refund`, { method: "POST" });
   return res.data;
 }
 
@@ -493,6 +515,58 @@ export async function decideSupplierRequest(
   patch: { status: "APPROVED" | "REJECTED"; adminComment?: string },
 ): Promise<SupplierRequest> {
   const res = await request<Envelope<SupplierRequest>>(`/supplier-requests/${id}`, {
+    method: "PATCH",
+    body: patch,
+  });
+  return res.data;
+}
+
+// ---------------------------------------------------------------------------
+// Supplier removal requests (supplier -> account closure, ADMIN review)
+// ---------------------------------------------------------------------------
+
+// No create — a request only ever exists as a side effect of DELETE
+// /auth/remove for a caller holding SUPPLIER (see AuthController.remove).
+export async function listSupplierRemoveRequests(): Promise<SupplierRemoveRequest[]> {
+  const res = await request<Envelope<SupplierRemoveRequest[]>>("/supplier-remove-requests");
+  return [...res.data].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+// Approving deletes the requester's User + Auth records outright.
+export async function decideSupplierRemoveRequest(
+  id: string,
+  patch: { status: "APPROVED" | "REJECTED"; adminComment?: string },
+): Promise<SupplierRemoveRequest> {
+  const res = await request<Envelope<SupplierRemoveRequest>>(`/supplier-remove-requests/${id}`, {
+    method: "PATCH",
+    body: patch,
+  });
+  return res.data;
+}
+
+// ---------------------------------------------------------------------------
+// Supplier payouts
+// ---------------------------------------------------------------------------
+
+// Role-scoped server-side: ADMIN sees every payout, SUPPLIER only payouts
+// for pools built from their own offers.
+export async function listPayouts(): Promise<SupplierPayout[]> {
+  const res = await request<Envelope<SupplierPayout[]>>("/payouts");
+  return [...res.data].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+// ADMIN only — records the actual (manual, off-Thawani) transfer.
+// paidAt is auto-stamped server-side on a transition into COMPLETED
+// unless supplied explicitly.
+export async function recordPayout(
+  id: string,
+  patch: { status?: SupplierPayoutStatus; transactionReference?: string; paidAt?: string },
+): Promise<SupplierPayout> {
+  const res = await request<Envelope<SupplierPayout>>(`/payouts/${id}`, {
     method: "PATCH",
     body: patch,
   });

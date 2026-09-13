@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useFetch } from "@/hooks/useFetch";
 import {
   createSupplierAccount,
+  decideSupplierRemoveRequest,
   decideSupplierRequest,
   deleteUser,
   getUserById,
+  listSupplierRemoveRequests,
   listSupplierRequests,
   listSuppliers,
 } from "@/mocks/api";
@@ -18,7 +20,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { PlusIcon, TrashIcon } from "@/components/ui/icons";
 import { formatDate } from "@/lib/utils";
 import { ApiError } from "@/lib/http";
-import type { AppUser, SupplierRequest } from "@/types/domain";
+import type { AppUser, SupplierRemoveRequest, SupplierRequest } from "@/types/domain";
 
 interface CreateForm {
   firstName: string;
@@ -49,9 +51,15 @@ const emptyForm: CreateForm = {
 export function AdminSuppliersPage() {
   const { data: suppliers, isLoading, error, refetch } = useFetch(() => listSuppliers(), []);
   const { data: requests, refetch: refetchRequests } = useFetch(() => listSupplierRequests(), []);
+  const { data: removeRequests, refetch: refetchRemoveRequests } = useFetch(
+    () => listSupplierRemoveRequests(),
+    [],
+  );
   const [requesterNames, setRequesterNames] = useState<Map<string, string>>(new Map());
+  const [removalRequesterNames, setRemovalRequesterNames] = useState<Map<string, string>>(new Map());
 
   const pendingRequests = (requests ?? []).filter((r) => r.status === "PENDING");
+  const pendingRemoveRequests = (removeRequests ?? []).filter((r) => r.status === "PENDING");
 
   useEffect(() => {
     if (pendingRequests.length === 0) return;
@@ -63,6 +71,17 @@ export function AdminSuppliersPage() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requests]);
+
+  useEffect(() => {
+    if (pendingRemoveRequests.length === 0) return;
+    const uniqueIds = [...new Set(pendingRemoveRequests.map((r) => r.user_ref))];
+    Promise.all(uniqueIds.map((id) => getUserById(id).catch(() => null))).then((users) => {
+      setRemovalRequesterNames(
+        new Map(users.filter((u): u is NonNullable<typeof u> => !!u).map((u) => [u._id, u.companyName])),
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [removeRequests]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState<CreateForm>(emptyForm);
@@ -137,6 +156,25 @@ export function AdminSuppliersPage() {
     }
   };
 
+  const [removeActionId, setRemoveActionId] = useState<string | null>(null);
+
+  // Approving actually deletes the requester's account (see
+  // SupplierRemoveRequestController.update) — refetch the supplier list
+  // too so the now-gone account drops out of "All suppliers" immediately.
+  const handleRemoveRequestDecision = async (
+    req: SupplierRemoveRequest,
+    status: "APPROVED" | "REJECTED",
+  ) => {
+    setRemoveActionId(req._id);
+    try {
+      await decideSupplierRemoveRequest(req._id, { status });
+      refetchRemoveRequests();
+      if (status === "APPROVED") refetch();
+    } finally {
+      setRemoveActionId(null);
+    }
+  };
+
   const columns: Column<AppUser>[] = [
     {
       key: "company",
@@ -196,6 +234,46 @@ export function AdminSuppliersPage() {
                     </Button>
                     <Button size="sm" onClick={() => handleRequestDecision(req, "APPROVED")} isLoading={requestActionId === req._id}>
                       Approve
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pendingRemoveRequests.length > 0 && (
+        <section>
+          <PageHeader
+            title="Pending account-removal requests"
+            description="Suppliers who have asked to close their account."
+          />
+          <div className="space-y-3">
+            {pendingRemoveRequests.map((req) => (
+              <Card key={req._id}>
+                <CardContent className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="font-medium text-primary">{removalRequesterNames.get(req.user_ref) ?? "…"}</p>
+                    <p className="mt-1 text-sm text-slate-600">{req.reason}</p>
+                    <p className="mt-1 text-xs text-slate-400">Submitted {formatDate(req.createdAt)}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleRemoveRequestDecision(req, "REJECTED")}
+                      isLoading={removeActionId === req._id}
+                    >
+                      Reject
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => handleRemoveRequestDecision(req, "APPROVED")}
+                      isLoading={removeActionId === req._id}
+                    >
+                      Approve &amp; delete account
                     </Button>
                   </div>
                 </CardContent>

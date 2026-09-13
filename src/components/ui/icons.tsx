@@ -177,3 +177,11 @@ export const TrashIcon = (props: IconProps) => (
     <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
   </svg>
 );
+
+export const WalletIcon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v2" />
+    <path d="M3 7v10a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1H5a2 2 0 0 1-2-2Z" />
+    <path d="M16 14h2" />
+  </svg>
+);

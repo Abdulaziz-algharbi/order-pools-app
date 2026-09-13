@@ -32,6 +32,15 @@ const STYLES: Record<string, string> = {
   PAYMENT_FAILED: "bg-red-50 text-red-700 ring-red-600/20",
   REFUNDED: "bg-slate-100 text-slate-700 ring-slate-500/20",
 
+  // SupplierPayout only — PENDING/COMPLETED above already cover its other
+  // two statuses.
+  PROCESSING: "bg-tertiary/10 text-tertiary ring-tertiary/20",
+  FAILED: "bg-red-50 text-red-700 ring-red-600/20",
+
+  // Payment only.
+  REFUND_PENDING: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  REFUND_FAILED: "bg-red-50 text-red-700 ring-red-600/20",
+
   "complaint:OPEN": "bg-amber-50 text-amber-700 ring-amber-600/20",
 };
 
@@ -57,6 +66,12 @@ const LABELS: Record<string, string> = {
   WAITING: "Waiting",
   PAYMENT_FAILED: "Payment Failed",
   REFUNDED: "Refunded",
+
+  PROCESSING: "Processing",
+  FAILED: "Failed",
+
+  REFUND_PENDING: "Refund Pending",
+  REFUND_FAILED: "Refund Failed",
 
   "complaint:OPEN": "Open",
 };

@@ -14,6 +14,7 @@ import {
   TruckIcon,
   UserIcon,
   UsersIcon,
+  WalletIcon,
 } from "@/components/ui/icons";
 
 export interface NavItem {
@@ -38,6 +39,7 @@ export const NAV_ITEMS: Record<Panel, NavItem[]> = {
     { label: "Active Pools", to: "/supplier/pools", icon: PackageIcon },
     { label: "Offers", to: "/supplier/offers", icon: ListIcon },
     { label: "Pool History", to: "/supplier/history", icon: ClockHistoryIcon },
+    { label: "Payouts", to: "/supplier/payouts", icon: WalletIcon },
     { label: "Notifications", to: "/supplier/notifications", icon: BellIcon },
     { label: "Profile", to: "/supplier/profile", icon: UserIcon },
   ],
@@ -50,6 +52,8 @@ export const NAV_ITEMS: Record<Panel, NavItem[]> = {
     { label: "Pool History", to: "/admin/pool-history", icon: ClockHistoryIcon },
     { label: "Track Pools", to: "/admin/track", icon: MapPinIcon },
     { label: "Complaints", to: "/admin/complaints", icon: AlertIcon },
+    { label: "Payments", to: "/admin/payments", icon: WalletIcon },
+    { label: "Payouts", to: "/admin/payouts", icon: WalletIcon },
     { label: "Suppliers", to: "/admin/suppliers", icon: BuildingIcon },
     { label: "Retailers", to: "/admin/retailers", icon: UsersIcon },
   ],

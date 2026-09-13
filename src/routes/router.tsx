@@ -22,6 +22,7 @@ import { SupplierOffersPage } from "@/pages/supplier/SupplierOffersPage";
 import { SupplierOfferDetailPage } from "@/pages/supplier/SupplierOfferDetailPage";
 import { CreateOfferPage } from "@/pages/supplier/CreateOfferPage";
 import { SupplierPoolHistoryPage } from "@/pages/supplier/SupplierPoolHistoryPage";
+import { SupplierPayoutsPage } from "@/pages/supplier/SupplierPayoutsPage";
 import { SupplierProfilePage } from "@/pages/supplier/SupplierProfilePage";
 
 import { AdminDashboard } from "@/pages/admin/AdminDashboard";
@@ -35,6 +36,8 @@ import { AdminTrackPoolsPage } from "@/pages/admin/AdminTrackPoolsPage";
 import { AdminComplaintsPage } from "@/pages/admin/AdminComplaintsPage";
 import { AdminSuppliersPage } from "@/pages/admin/AdminSuppliersPage";
 import { AdminRetailersPage } from "@/pages/admin/AdminRetailersPage";
+import { AdminPayoutsPage } from "@/pages/admin/AdminPayoutsPage";
+import { AdminPaymentsPage } from "@/pages/admin/AdminPaymentsPage";
 
 export const router = createBrowserRouter([
   { path: "/", element: <RootRedirect /> },
@@ -68,6 +71,7 @@ export const router = createBrowserRouter([
       { path: "offers/new", element: <CreateOfferPage />, handle: { title: "New Offer" } },
       { path: "offers/:offerId", element: <SupplierOfferDetailPage />, handle: { title: "Offer Details" } },
       { path: "history", element: <SupplierPoolHistoryPage />, handle: { title: "Pool History" } },
+      { path: "payouts", element: <SupplierPayoutsPage />, handle: { title: "Payouts" } },
       { path: "notifications", element: <NotificationsPage />, handle: { title: "Notifications" } },
       { path: "profile", element: <SupplierProfilePage />, handle: { title: "Profile" } },
     ],
@@ -86,6 +90,8 @@ export const router = createBrowserRouter([
       { path: "pool-history", element: <AdminPoolHistoryPage />, handle: { title: "Pool History" } },
       { path: "track", element: <AdminTrackPoolsPage />, handle: { title: "Track Pools" } },
       { path: "complaints", element: <AdminComplaintsPage />, handle: { title: "Complaints" } },
+      { path: "payments", element: <AdminPaymentsPage />, handle: { title: "Payments" } },
+      { path: "payouts", element: <AdminPayoutsPage />, handle: { title: "Payouts" } },
       { path: "suppliers", element: <AdminSuppliersPage />, handle: { title: "Suppliers" } },
       { path: "retailers", element: <AdminRetailersPage />, handle: { title: "Retailers" } },
     ],

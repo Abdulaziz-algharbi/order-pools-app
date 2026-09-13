@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
 import {
   createDelivery,
+  expirePool,
   getPool,
   getUserById,
   listPoolParticipants,
@@ -11,6 +12,7 @@ import {
 } from "@/mocks/api";
 import { PoolOverview, type PoolParticipantRow } from "@/components/domain/PoolOverview";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { PageSpinner, Spinner } from "@/components/ui/Spinner";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { formatNumber } from "@/lib/utils";
@@ -25,6 +27,12 @@ export function AdminPoolDetailPage() {
   const [rows, setRows] = useState<PoolParticipantRow[]>([]);
   const [rowsLoading, setRowsLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [expireOpen, setExpireOpen] = useState(false);
+  const [expiring, setExpiring] = useState(false);
+  const [expireResult, setExpireResult] = useState<{
+    refundsRequested: number;
+    refundsFailed: number;
+  } | null>(null);
 
   const delivery: Delivery | undefined = deliveries?.find((d) => d.pool_ref === poolId);
 
@@ -77,6 +85,22 @@ export function AdminPoolDetailPage() {
     }
   };
 
+  // Only meaningful once the pool's own endDate has passed while it never
+  // reached its target — mirrors PoolController.expirePool()'s own guard
+  // (OPEN + endDate in the past) so this button never appears just to 409.
+  const canExpire = pool.status === "OPEN" && new Date(pool.endDate).getTime() <= Date.now();
+
+  const handleExpire = async () => {
+    setExpiring(true);
+    try {
+      const result = await expirePool(pool._id);
+      setExpireResult({ refundsRequested: result.refundsRequested, refundsFailed: result.refundsFailed });
+      refetch();
+    } finally {
+      setExpiring(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-4xl">
       <Link to="/admin/pools" className="mb-4 inline-block text-sm font-medium text-tertiary hover:underline">
@@ -114,7 +138,50 @@ export function AdminPoolDetailPage() {
             Mark delivered
           </Button>
         )}
+        {canExpire && (
+          <Button variant="danger" onClick={() => setExpireOpen(true)}>
+            Expire pool
+          </Button>
+        )}
       </PoolOverview>
+
+      <Modal
+        open={expireOpen}
+        onClose={() => {
+          if (expiring) return;
+          setExpireOpen(false);
+          setExpireResult(null);
+        }}
+        title={expireResult ? "Pool expired" : "Expire this pool?"}
+        description={
+          expireResult
+            ? `Cancelled. ${expireResult.refundsRequested} refund(s) requested${
+                expireResult.refundsFailed > 0 ? `, ${expireResult.refundsFailed} failed and need a manual retry` : ""
+              }.`
+            : "This pool never reached its target before its end date. Cancelling it sweeps any pending payments to failed and requests a refund for every completed one."
+        }
+        footer={
+          expireResult ? (
+            <Button
+              onClick={() => {
+                setExpireOpen(false);
+                setExpireResult(null);
+              }}
+            >
+              Done
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setExpireOpen(false)} disabled={expiring}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={handleExpire} isLoading={expiring}>
+                Expire pool
+              </Button>
+            </>
+          )
+        }
+      />
     </div>
   );
 }
