@@ -1,78 +1,80 @@
 # Order Pool — Project Scope
 
+> Derived from `src/types/domain.ts`, `src/pages/`, and the sibling `order-pools-backend` repo on 2026-09-13. This is a snapshot — re-verify against the code (and the backend's own `docs/project-scope.md`, the actual source of truth for entities and business rules) before relying on it for anything load-bearing.
+
 ## What Order Pool is
 
-Order Pool is a multi-role wholesale group-purchasing platform. It connects **suppliers**, who offer products at large wholesale quantities, with **retailers**, who often only need a portion of that quantity. Rather than one retailer buying the full wholesale amount, Order Pool lets multiple retailers collectively fund a **Pool** until it reaches its target quantity, at which point the order is fulfilled and delivered.
+Order Pool is a multi-role wholesale group-purchasing platform. It connects **suppliers**, who offer products at large wholesale quantities, with **retailers**, who often only need a portion of that quantity. Rather than one retailer buying the full wholesale amount, Order Pool lets multiple retailers collectively fund a **Pool** until it reaches its target quantity, at which point an administrator arranges delivery and the supplier is paid.
 
-Example: a supplier offers 1,000 units of a product. Retailer A needs 200, Retailer B needs 300, Retailer C needs 500. Together they fill the pool, it becomes **met**, and delivery begins.
+Example: a supplier's approved offer is built into a pool needing 1,000 units. Retailer A joins for 200, Retailer B for 300, Retailer C for 500. Together they fill the pool (`TARGET_REACHED`), an admin assigns and progresses delivery (`DISTRIBUTING` → `COMPLETED`), and a payout for the supplier is created automatically.
 
-This is not an e-commerce storefront — it's a coordination platform between three distinct roles, each with its own dashboard, permissions, and primary question:
-
-- **Retailer**: "What can I buy at a good wholesale price, how much do I need to contribute, and when will I receive it?"
-- **Supplier**: "Which of my pools are active, which are met, and what do I need to prepare or deliver?"
-- **Administrator**: "What requires my attention right now?"
+This is not an e-commerce storefront — it's a coordination platform between three roles, each with its own dashboard and permissions, backed by a real API (`order-pools-backend`) that owns every business rule, validation, and authorization decision. This frontend does not invent any of those — it renders and calls what the backend actually exposes.
 
 ## Roles
 
 | Role | Responsibility |
 |---|---|
-| **Retailer** | Browses pools, joins pools by contributing a quantity, tracks deliveries, files complaints. |
-| **Supplier** | Submits wholesale offers, fulfills pools once met, tracks their own pool history. |
-| **Administrator** | Reviews and decides on supplier offers, assigns deliveries, manages suppliers/retailers, resolves complaints. |
+| **Retailer** | Browses `OPEN` pools, joins one by contributing a quantity and paying via Thawani, tracks deliveries, files complaints, can request to also become a supplier. Default role on signup. |
+| **Supplier** | Submits wholesale offers for admin approval, sees pools built from their own offers, tracks payouts owed to them. Granted additively onto an existing account (via an admin-approved `SupplierRequest`) — never replaces `RETAILER`. |
+| **Administrator** | Approves/rejects offers, creates pools from approved offers, assigns and progresses deliveries, can force-expire a stalled pool, records supplier payouts and payment refund follow-up, reviews supplier and account-removal requests, manages supplier/retailer accounts, resolves complaints. |
 
-Role-specific functionality is hidden in the UI per role, but the UI hiding a control is not itself an authorization boundary — that responsibility belongs to the backend once one exists.
+A single account can hold more than one role at once (most commonly `RETAILER` + `SUPPLIER`) — `AppUser.roles` is a real array, not a discriminant. The UI hides controls per role for usability, but that is never the authorization boundary; the backend enforces role/ownership on every request independently of what the UI shows.
 
 ## Core domain concepts
 
-- **Supplier Offer** — a supplier's proposed wholesale opportunity, awaiting administrator review. Statuses: `pending_review` → `negotiation` | `accepted` | `refused`.
-- **Pool** — an accepted offer, now open for retailers to join. Fields include product, supplier, target quantity, current quantity, minimum contribution, unit price, start date, deadline, and status.
-- **Pool status lifecycle**: `active` → `met` → `delivery_assigned` → `delivered` → `closed`.
-- **Join** — a single retailer's participation record in a pool (quantity contributed, total price, join date). Conceptually similar to a cart line item, but a retailer can have many simultaneous joins across different pools.
-- **Delivery** — created once a pool is met; tracks driver assignment, ETA, and status updates through to delivery.
-- **Complaint** — filed by a retailer against a pool/delivery/general issue; administrators respond and resolve.
+Entity shapes mirror `order-pools-backend` exactly (see its `docs/project-scope.md` for full detail) — summarized here:
+
+- **ProductOffer** — a supplier's wholesale listing, awaiting admin review. `status`: `PENDING` → `NEGOTIATION` | `APPROVED` | `REJECTED`. Only visible to its owning supplier and admins; a retailer never sees an offer directly (see Pool below). A `REJECTED` offer auto-deletes 7 days later.
+- **Pool** — created by an admin from an `APPROVED` offer; the offer's display fields (name, description, image, unit) and its supplier's name are snapshotted onto the pool at creation, since a retailer has no read access to the offer itself. `status`: `OPEN` → `TARGET_REACHED` → `DISTRIBUTING` → `COMPLETED`, or `OPEN` → `CANCELLED` (admin-forced, only past its `endDate`). `currentQuantity` counts *down* from `targetQuantity` as retailers join.
+- **PoolParticipant** — one retailer's claim on a pool's quantity. `status`: `PENDING_PAYMENT` → `WAITING` → `DELIVERED`, or `PAYMENT_FAILED` / `REFUNDED` off the happy path. A retailer may withdraw (releasing their claim, refunding a completed payment) while the pool is still `OPEN`, once it's `COMPLETED`, or 7+ days after it was `CANCELLED`.
+- **Payment** — one per participant, via a real Thawani hosted-checkout session. `status`: `PENDING` → `COMPLETED` → `REFUND_PENDING` → `REFUNDED`, or → `FAILED` / `REFUND_FAILED` off the happy path. A `PENDING` payment carries a re-derivable `checkoutUrl` for resuming an abandoned checkout.
+- **Delivery** — one per pool (created only once `TARGET_REACHED`). `deliveryStatus`: `PENDING` → `DELIVERING` → `DELIVERED`. Reaching `DELIVERED` also flips the pool to `COMPLETED` and every `WAITING` participant to `DELIVERED`, and auto-creates a `SupplierPayout`.
+- **SupplierPayout** — one per pool, auto-created once its delivery completes. `amount` is fixed to the offer's agreed wholesale price (never derived from actual retailer payments). `status`: `PENDING` → `PROCESSING` → `COMPLETED` | `FAILED` — an admin records the actual bank transfer manually; there is no automated vendor-payout API.
+- **Complaint** — filed by whichever retailer or supplier is affected, against a pool. `status`: `OPEN` → `'UNDER REVIEW'` → `RESOLVED`. The filer may edit `title`/`description`/`priority` any time; only an admin sets `status`/`resolution`.
+- **SupplierRequest** — a retailer's request to also become a supplier. `status`: `PENDING` → `APPROVED` | `REJECTED`. Approving grants `SUPPLIER` additively.
+- **SupplierRemoveRequest** — created as a side effect of a supplier-holding account calling account removal (never posted directly). `status`: `PENDING` → `APPROVED` | `REJECTED`. Approving deletes the account outright.
+- **Address** — not role-specific; owned via `User.addresses[]`. A retailer needs at least one to join a pool; a new account needs at least one to register at all.
 
 Terminology is used consistently throughout the product: **Pool** is the one central concept — never "order," "deal," "campaign," or "group order."
 
 ## Pool lifecycle (end to end)
 
-1. Supplier submits an offer.
-2. Administrator reviews: accept / request negotiation / refuse.
-3. On accept, the offer becomes an active Pool, visible to retailers.
-4. Retailers join, each contributing at least the pool's minimum contribution.
-5. Once current quantity reaches target quantity, the pool becomes **met**.
-6. Supplier is notified to prepare the order.
-7. Administrator assigns a delivery (driver, ETA).
-8. Retailers and administrators track delivery progress.
-9. Once delivered, the pool is closed and becomes historical.
+1. Supplier submits a `ProductOffer`.
+2. Admin approves it (or rejects it — there's no dedicated "request negotiation" action on either side yet, just a direct status `PATCH`).
+3. Admin creates a `Pool` from the approved offer (a separate, manual step — not yet linked automatically to approval).
+4. Retailers join, each paying their contribution via a real Thawani checkout redirect. A join atomically reserves quantity; the pool flips to `TARGET_REACHED` the instant it's exactly filled.
+5. Admin assigns a `Delivery` (pool flips to `DISTRIBUTING`), then progresses it through to `DELIVERED` (pool flips to `COMPLETED`, every `WAITING` participant flips to `DELIVERED`).
+6. A `SupplierPayout` is auto-created; an admin records the actual transfer once made.
+7. If a pool never fills before its `endDate`, an admin can force-expire it — it cancels, sweeps pending payments to failed, and requests a refund for every completed one.
 
-## Feature scope by role
+## Feature scope by role (as currently built)
 
 ### Retailer
-- Browse and search active pools; view full pool detail (product, supplier, price, progress, minimum contribution, deadline, what happens after the pool is met).
-- Join a pool with a contribution quantity (validated against minimum contribution and remaining capacity).
-- **My Joins** — pools currently participating in, with contribution and pool status.
-- **Track Deliveries** — delivery status for pools that have been met, through to delivered.
-- **Complaints** — file a complaint, view history and admin responses.
-- **Notifications** — pool status changes, pool met, delivery updates, system messages.
-- **Profile** — business info, contact details.
+- Browse `OPEN` pools; view full pool detail (product, supplier, price, progress, minimum contribution, deadline, "what happens after the pool is met").
+- Join a pool with a contribution quantity (validated against minimum contribution and remaining capacity) → real Thawani checkout redirect.
+- **My Joins** — every pool participated in, with contribution, pool progress, and payment status. A `PENDING` payment gets "Resume checkout" / "Cancel" actions; an eligible participant gets a "Leave" action.
+- **Track Deliveries** — delivery status for pools that have reached their target, through to delivered.
+- **Complaints** — file, edit, and view responses.
+- **Notifications** — delivery/payment events, with per-recipient read state.
+- **Profile** — edit name/phone/company/password, manage saved addresses, request to become a supplier (with status shown once filed), delete account.
 
 ### Supplier
 - View own active pools and their progress.
-- Submit new wholesale offers (sent to admin for review).
-- View own offers and their review status (pending / negotiation / accepted / refused).
-- **Pool History** — own pools that have been met, delivered, or closed.
-- **Notifications** — offer decisions, "prepare for delivery" alerts.
-- **Profile** — company info, verification status.
+- Submit new wholesale offers; edit or withdraw one while it's still `PENDING`/`NEGOTIATION`.
+- View own offers and their review status, including any admin note.
+- **Pool History** — own pools that have reached `COMPLETED`/`CANCELLED`.
+- **Payouts** — read-only view of what's owed and its payment status.
+- **Notifications** — shared page/component with retailer.
+- **Profile** — same edit/address-book actions as retailer, plus account closure (opens an admin-reviewed request rather than deleting immediately, since a supplier may have open pools/payouts).
 
 ### Administrator
-- **Supplier Offers** — review queue with accept / request-negotiation / refuse actions.
-- **Offers History** — previously decided offers.
-- **Active Pools** — all pools across all suppliers.
-- **Met Pools** — pools ready for delivery assignment (assign driver, phone, ETA).
-- **Pool History** — delivered/closed pools across the platform.
-- **Track Pools** — pools currently in delivery, with assigned driver.
-- **Complaints** — review and resolve retailer complaints.
-- **Suppliers** — list, create, delete suppliers; review requests from users wanting to become suppliers.
+- **Supplier Offers** / **Offers History** — review queue and past decisions (status `PATCH` only — no dedicated approve/negotiate/reject actions yet).
+- **Active Pools** / **Met Pools** / **Pool History** — pools across all suppliers by lifecycle stage; a pool detail page assigns/progresses delivery and can force-expire a stalled `OPEN` pool past its deadline.
+- **Track Pools** — pools currently in delivery.
+- **Complaints** — review and resolve.
+- **Payments** — every payment platform-wide, with refund follow-up (retry a failed refund, confirm a pending one completed).
+- **Payouts** — record a supplier payout's manual transfer status and reference.
+- **Suppliers** — list, create, delete supplier accounts; review pending supplier requests and account-removal requests.
 - **Retailers** — view all registered retailers.
 
 ## Design goals
@@ -98,10 +100,8 @@ Supported breakpoints: desktop (~1280px), tablet (~768px), mobile (~360px). Tabl
 
 ## Backend integration principle
 
-The backend (once available) is the source of truth for entities, validation, relationships, authorization, and statuses. This frontend does not invent endpoints, fields, or business rules — where the current build uses mock data (see `docs/tech-stack.md`), it mirrors the shapes described in this scope document rather than convenient UI-only shortcuts, specifically so swapping in the real API is a narrow, mechanical change.
+`order-pools-backend` is the source of truth for entities, validation, relationships, authorization, and statuses. This frontend does not invent endpoints, fields, or business rules — where a capability doesn't exist on the backend yet (e.g. a dedicated "request negotiation" action, or linking offer approval directly to pool creation), the frontend doesn't fake it either; see `docs/implementation-plan.md` for the current list of such gaps.
 
-## Current scope vs. future scope
+## Explicitly out of scope (for now)
 
-**In scope now**: authentication, role-based dashboards, the full supplier/retailer/admin workflows described above, notifications, complaints, profiles, and delivery tracking at the level described here.
-
-**Explicitly out of scope until requested**: live map tracking, advanced delivery tracking beyond status + ETA, automated complaint/support agents, advanced analytics, and any other feature that would require backend capabilities not described above.
+Live map delivery tracking, automated complaint/support agents, advanced analytics/reporting, and any feature that would require backend capabilities `order-pools-backend` doesn't expose yet.

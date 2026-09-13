@@ -82,6 +82,39 @@ export async function fetchCurrentUser(): Promise<AppUser> {
   return res.user;
 }
 
+export interface UpdateProfileInput {
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  companyName?: string;
+  password?: string;
+  commercialRegistration?: string | null;
+  vatNumber?: string | null;
+}
+
+// Self-service only — never roles or email (see auth.schema.ts
+// updateOwnProfileSchema). A supplied password is re-hashed server-side
+// exactly as it is on register.
+export async function updateMyProfile(patch: UpdateProfileInput): Promise<AppUser> {
+  const res = await request<{ message: string; user: AppUser }>("/auth/me", {
+    method: "PATCH",
+    body: patch,
+  });
+  return res.user;
+}
+
+// A RETAILER-only caller is deleted immediately (deleted: true). A caller
+// holding SUPPLIER instead opens a SupplierRemoveRequest for admin review
+// — their account is untouched until that's approved (deleted: false; see
+// AuthController.remove).
+export async function removeAccount(reason: string): Promise<{ deleted: boolean }> {
+  const res = await request<{ message: string; data?: unknown }>("/auth/remove", {
+    method: "DELETE",
+    body: { reason },
+  });
+  return { deleted: !res.data };
+}
+
 // ---------------------------------------------------------------------------
 // Addresses
 // ---------------------------------------------------------------------------
@@ -100,6 +133,21 @@ export async function listMyAddresses(): Promise<Address[]> {
 
 export async function createAddress(input: CreateAddressInput): Promise<Address> {
   return request<Address>("/addresses", { method: "POST", body: input });
+}
+
+export async function updateAddress(
+  id: string,
+  patch: Partial<CreateAddressInput>,
+): Promise<Address> {
+  const res = await request<Envelope<Address>>(`/addresses/${id}`, {
+    method: "PATCH",
+    body: patch,
+  });
+  return res.data;
+}
+
+export async function deleteAddress(id: string): Promise<void> {
+  await request(`/addresses/${id}`, { method: "DELETE" });
 }
 
 // Unauthenticated on purpose — mirrors how a brand-new account creates its

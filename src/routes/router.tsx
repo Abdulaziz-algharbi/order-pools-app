@@ -6,6 +6,7 @@ import { SignupPage } from "@/pages/auth/SignupPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { NotificationsPage } from "@/pages/shared/NotificationsPage";
 import { PaymentResultPage } from "@/pages/shared/PaymentResultPage";
+import { AddressBookPage } from "@/pages/shared/AddressBookPage";
 
 import { RetailerDashboard } from "@/pages/retailer/RetailerDashboard";
 import { PoolsBrowsePage } from "@/pages/retailer/PoolsBrowsePage";
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
       { path: "complaints", element: <ComplaintsPage />, handle: { title: "Complaints" } },
       { path: "notifications", element: <NotificationsPage />, handle: { title: "Notifications" } },
       { path: "profile", element: <RetailerProfilePage />, handle: { title: "Profile" } },
+      { path: "addresses", element: <AddressBookPage />, handle: { title: "Addresses" } },
     ],
   },
 
@@ -74,6 +76,7 @@ export const router = createBrowserRouter([
       { path: "payouts", element: <SupplierPayoutsPage />, handle: { title: "Payouts" } },
       { path: "notifications", element: <NotificationsPage />, handle: { title: "Notifications" } },
       { path: "profile", element: <SupplierProfilePage />, handle: { title: "Profile" } },
+      { path: "addresses", element: <AddressBookPage />, handle: { title: "Addresses" } },
     ],
   },
 

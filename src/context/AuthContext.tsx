@@ -14,7 +14,10 @@ import {
   login as apiLogin,
   logout as apiLogout,
   register as apiRegister,
+  removeAccount as apiRemoveAccount,
+  updateMyProfile,
   type RegisterInput,
+  type UpdateProfileInput,
 } from "@/mocks/api";
 
 interface AuthContextValue {
@@ -23,6 +26,11 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   signup: (input: RegisterInput) => Promise<void>;
   logout: () => void;
+  updateProfile: (patch: UpdateProfileInput) => Promise<AppUser>;
+  /** Returns whether the account was actually deleted (RETAILER) vs. a
+   *  removal request was filed instead (SUPPLIER) — see removeAccount()
+   *  in mocks/api.ts. Clears the session locally only when deleted. */
+  removeAccount: (reason: string) => Promise<{ deleted: boolean }>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -77,9 +85,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateProfile = useCallback(async (patch: UpdateProfileInput) => {
+    const updated = await updateMyProfile(patch);
+    setUser(updated);
+    return updated;
+  }, []);
+
+  const removeAccount = useCallback(async (reason: string) => {
+    const result = await apiRemoveAccount(reason);
+    if (result.deleted) {
+      clearTokens();
+      setUser(null);
+    }
+    return result;
+  }, []);
+
   const value = useMemo(
-    () => ({ user, isLoading, login, signup, logout }),
-    [user, isLoading, login, signup, logout],
+    () => ({ user, isLoading, login, signup, logout, updateProfile, removeAccount }),
+    [user, isLoading, login, signup, logout, updateProfile, removeAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

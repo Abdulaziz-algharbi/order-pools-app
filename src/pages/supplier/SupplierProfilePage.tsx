@@ -3,6 +3,7 @@ import { useFetch } from "@/hooks/useFetch";
 import { listMyAddresses } from "@/mocks/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ProfileCard } from "@/components/domain/ProfileCard";
+import { ProfileActions } from "@/components/domain/ProfileActions";
 import { formatDate } from "@/lib/utils";
 
 export function SupplierProfilePage() {
@@ -12,7 +13,7 @@ export function SupplierProfilePage() {
   if (!user) return null;
 
   return (
-    <div>
+    <div className="space-y-8">
       <PageHeader title="Profile" description="Your account and company information." />
       <ProfileCard
         name={user.companyName}
@@ -28,6 +29,7 @@ export function SupplierProfilePage() {
           { label: "Role", value: "Supplier" },
         ]}
       />
+      <ProfileActions addressesPath="/supplier/addresses" />
     </div>
   );
 }

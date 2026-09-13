@@ -26,6 +26,10 @@ export function useNotifications(userId: string | undefined) {
     refresh();
   }, [refresh]);
 
+  // Both actions update local state optimistically for a snappy UI, but
+  // re-sync from the server on failure rather than trying to hand-revert
+  // just the bits that were touched — simpler, and correct even if the
+  // local state had already drifted for some other reason.
   const markRead = useCallback(
     async (id: string) => {
       setNotifications((prev) =>
@@ -40,9 +44,13 @@ export function useNotifications(userId: string | undefined) {
             : n,
         ),
       );
-      await markNotificationRead(id);
+      try {
+        await markNotificationRead(id);
+      } catch {
+        refresh();
+      }
     },
-    [userId],
+    [userId, refresh],
   );
 
   // No bulk "mark all read" endpoint exists on the backend — each
@@ -60,8 +68,12 @@ export function useNotifications(userId: string | undefined) {
         ),
       })),
     );
-    await Promise.all(unreadIds.map((id) => markNotificationRead(id)));
-  }, [userId, notifications]);
+    try {
+      await Promise.all(unreadIds.map((id) => markNotificationRead(id)));
+    } catch {
+      refresh();
+    }
+  }, [userId, notifications, refresh]);
 
   const unreadCount = userId
     ? notifications.filter((n) => !isReadForUser(n, userId)).length

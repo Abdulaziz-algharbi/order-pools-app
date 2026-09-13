@@ -9,14 +9,19 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 
-export function formatCurrency(value: number): string {
-  return currencyFormatter.format(value);
+// Guards against a missing/non-numeric value rendering as the literal
+// string "NaN" — can happen with a record from before a now-required
+// field existed on the backend schema (e.g. a legacy Pool missing
+// targetQuantity). Every call site gets this for free rather than each
+// one needing its own fallback.
+export function formatCurrency(value: number | undefined | null): string {
+  return Number.isFinite(value) ? currencyFormatter.format(value as number) : "—";
 }
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
-export function formatNumber(value: number): string {
-  return numberFormatter.format(value);
+export function formatNumber(value: number | undefined | null): string {
+  return Number.isFinite(value) ? numberFormatter.format(value as number) : "—";
 }
 
 export function formatDate(value: string): string {
@@ -56,7 +61,7 @@ export function daysUntil(value: string): number {
 }
 
 export function poolProgress(current: number, target: number): number {
-  if (target <= 0) return 0;
+  if (!Number.isFinite(current) || !Number.isFinite(target) || target <= 0) return 0;
   return Math.min(100, Math.round((current / target) * 100));
 }
 

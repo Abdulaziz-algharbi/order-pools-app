@@ -4,6 +4,7 @@ import { useFetch } from "@/hooks/useFetch";
 import { createSupplierRequest, listMyAddresses, listSupplierRequests } from "@/mocks/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ProfileCard } from "@/components/domain/ProfileCard";
+import { ProfileActions } from "@/components/domain/ProfileActions";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -68,6 +69,8 @@ export function RetailerProfilePage() {
           { label: "Role", value: "Retailer" },
         ]}
       />
+
+      <ProfileActions addressesPath="/retailer/addresses" />
 
       {!isSupplier && (
         <Card className="mx-auto max-w-2xl">
