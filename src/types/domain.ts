@@ -159,6 +159,13 @@ export interface Payment {
   thawaniPaymentId?: string | null;
   thawaniRefundId?: string | null;
   status: PaymentStatus;
+  /**
+   * Only present while `status` is `PENDING` — a checkout link re-derived
+   * from the already-issued Thawani session (see PaymentController.getById/
+   * transformListDoc), for resuming a checkout that was abandoned without
+   * hitting success_url/cancel_url.
+   */
+  checkoutUrl?: string;
   createdAt: string;
   updatedAt: string;
 }

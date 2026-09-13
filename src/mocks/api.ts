@@ -226,6 +226,13 @@ export async function getPayment(id: string): Promise<Payment> {
   return res.data;
 }
 
+// Always scoped to the caller's own payments server-side (ADMIN sees
+// every payment instead, but nothing here calls this as an admin).
+export async function listMyPayments(): Promise<Payment[]> {
+  const res = await request<Envelope<Payment[]>>("/payments");
+  return res.data;
+}
+
 // Re-checks a payment's Thawani session and settles it if paid — this is
 // what the checkout success/cancel landing page calls to reconcile.
 export async function confirmPayment(id: string): Promise<Payment> {

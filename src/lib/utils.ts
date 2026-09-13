@@ -59,3 +59,16 @@ export function poolProgress(current: number, target: number): number {
   if (target <= 0) return 0;
   return Math.min(100, Math.round((current / target) * 100));
 }
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Mirrors PoolParticipantController.delete()'s own guard exactly (see
+// pool.participants.controller.ts): a participant may withdraw while the
+// pool is still OPEN (backing out before it commits), once it's COMPLETED
+// (fully delivered), or 7+ days after it was CANCELLED (a grace period for
+// refund/dispute handling). Any other pool status blocks it.
+export function canWithdrawFromPool(pool: { status: string; updatedAt: string }): boolean {
+  if (pool.status === "OPEN" || pool.status === "COMPLETED") return true;
+  if (pool.status !== "CANCELLED") return false;
+  return Date.now() - new Date(pool.updatedAt).getTime() >= SEVEN_DAYS_MS;
+}

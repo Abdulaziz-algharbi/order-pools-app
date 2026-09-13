@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useFetch } from "@/hooks/useFetch";
-import { createComplaint, listComplaints, listMyParticipants, listPools } from "@/mocks/api";
+import {
+  createComplaint,
+  listComplaints,
+  listMyParticipants,
+  listPools,
+  updateOwnComplaint,
+} from "@/mocks/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -12,6 +18,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Spinner";
 import { AlertIcon, PlusIcon } from "@/components/ui/icons";
 import { ApiError } from "@/lib/http";
+import type { Complaint, ComplaintPriority } from "@/types/domain";
 
 export function ComplaintsPage() {
   const { data: complaints, isLoading, error, refetch } = useFetch(() => listComplaints(), []);
@@ -24,6 +31,13 @@ export function ComplaintsPage() {
   const [poolId, setPoolId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const [editTarget, setEditTarget] = useState<Complaint | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editPriority, setEditPriority] = useState<ComplaintPriority>("MEDIUM");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const myPoolIds = new Set((participants ?? []).map((p) => p.pool_ref));
   const myPools = (pools ?? []).filter((p) => myPoolIds.has(p._id));
@@ -55,6 +69,40 @@ export function ComplaintsPage() {
       setFormError(e instanceof ApiError ? e.message : "Could not submit complaint.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openEdit = (c: Complaint) => {
+    setEditTarget(c);
+    setEditTitle(c.title);
+    setEditDescription(c.description);
+    setEditPriority(c.priority);
+    setEditError(null);
+  };
+
+  // Owner-editable fields only (title/description/priority) — status and
+  // resolution are admin-only (see ComplaintController.update), so this
+  // form never offers them.
+  const handleEditSubmit = async () => {
+    if (!editTarget) return;
+    if (!editTitle.trim() || !editDescription.trim()) {
+      setEditError("Title and description are required.");
+      return;
+    }
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      await updateOwnComplaint(editTarget._id, {
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        priority: editPriority,
+      });
+      setEditTarget(null);
+      refetch();
+    } catch (e) {
+      setEditError(e instanceof ApiError ? e.message : "Could not update complaint.");
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -99,7 +147,12 @@ export function ComplaintsPage() {
                     <h3 className="font-medium text-primary">{c.title}</h3>
                     <p className="mt-1 text-sm text-slate-500">{c.description}</p>
                   </div>
-                  <StatusBadge status={c.status} domain="complaint" />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <StatusBadge status={c.status} domain="complaint" />
+                    <Button size="sm" variant="outline" onClick={() => openEdit(c)}>
+                      Edit
+                    </Button>
+                  </div>
                 </div>
                 {c.resolution && (
                   <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm">
@@ -151,6 +204,48 @@ export function ComplaintsPage() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the issue in detail"
               hasError={!!formError}
+            />
+          </FieldWrapper>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        title="Edit complaint"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSubmitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditSubmit} isLoading={editSubmitting}>
+              Save
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <FieldWrapper label="Title" htmlFor="edit-title" required>
+            <Input id="edit-title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+          </FieldWrapper>
+          <FieldWrapper label="Priority" htmlFor="edit-priority">
+            <Select
+              id="edit-priority"
+              value={editPriority}
+              onChange={(e) => setEditPriority(e.target.value as ComplaintPriority)}
+            >
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+            </Select>
+          </FieldWrapper>
+          <FieldWrapper label="Description" htmlFor="edit-description" error={editError ?? undefined} required>
+            <Textarea
+              id="edit-description"
+              rows={4}
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              hasError={!!editError}
             />
           </FieldWrapper>
         </div>
