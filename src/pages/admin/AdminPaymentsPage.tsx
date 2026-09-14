@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useFetch } from "@/hooks/useFetch";
-import { confirmRefund, getUserById, listPayments, listPools, retryRefund } from "@/mocks/api";
+import { confirmRefund, getUserById, listPayments, listPools, retryRefund } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";

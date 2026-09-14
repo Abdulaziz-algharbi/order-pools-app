@@ -1,5 +1,5 @@
 import { useFetch } from "@/hooks/useFetch";
-import { listRetailers } from "@/mocks/api";
+import { listRetailers } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { ErrorState } from "@/components/ui/ErrorState";

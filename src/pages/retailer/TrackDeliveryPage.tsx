@@ -1,5 +1,5 @@
 import { useFetch } from "@/hooks/useFetch";
-import { listDeliveries, listMyParticipants, listPools } from "@/mocks/api";
+import { listDeliveries, listMyParticipants, listPools } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";

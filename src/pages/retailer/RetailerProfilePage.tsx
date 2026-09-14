@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useFetch } from "@/hooks/useFetch";
-import { createSupplierRequest, listMyAddresses, listSupplierRequests } from "@/mocks/api";
+import { createSupplierRequest, listMyAddresses, listSupplierRequests } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ProfileCard } from "@/components/domain/ProfileCard";
 import { ProfileActions } from "@/components/domain/ProfileActions";

@@ -9,7 +9,7 @@ import {
   listSupplierRemoveRequests,
   listSupplierRequests,
   listSuppliers,
-} from "@/mocks/api";
+} from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { DataTable, type Column } from "@/components/ui/DataTable";

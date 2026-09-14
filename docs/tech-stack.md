@@ -12,7 +12,7 @@
 | Routing | React Router 7 (`createBrowserRouter` data router) |
 | Styling | Tailwind CSS v4 |
 | Fonts | Geist Sans (headings), Inter (body) — self-hosted via `@fontsource/*` |
-| State/data | React state + a thin typed client (`src/mocks/api.ts`) against the real `order-pools-backend` API |
+| State/data | React state + a thin typed client (`src/services/api.ts`) against the real `order-pools-backend` API |
 | Auth | Real JWT access/refresh tokens (see "Auth" below) |
 | Linting | ESLint 9 (flat config) + typescript-eslint |
 
@@ -37,7 +37,7 @@ No component library, no state-management library, no CSS-in-JS, no test runner.
 There is a real backend: `order-pools-backend` (a sibling repo). `VITE_API_BASE_URL` (`.env`, e.g. `http://localhost:8000/api/v1` in local dev) points at it.
 
 - `src/lib/http.ts` — the only place that calls `fetch()` directly. Attaches `Authorization: Bearer <accessToken>` from `src/lib/tokenStore.ts`; on a 401 it silently attempts one token refresh (de-duplicated — concurrent 401s share one in-flight refresh, not one each) and retries the original request once before giving up and dispatching a `order-pool:session-expired` window event (handled by `AuthContext`, which drops the session).
-- `src/mocks/api.ts` — despite the name (which predates the real backend and was never renamed), this is the real, only API client. Every page/component calls functions from here, never `lib/http` directly. Response envelopes are **not uniform** across the backend (`{message, data}` vs. a raw document vs. `{user}`, etc.) — each function here unwraps whatever its specific endpoint actually sends; see `order-pools-backend`'s own docs for the authoritative shape per endpoint.
+- `src/services/api.ts` — the real, only API client (formerly `src/mocks/api.ts`, a name left over from before the real backend was wired up). Every page/component calls functions from here, never `lib/http` directly. Response envelopes are **not uniform** across the backend (`{message, data}` vs. a raw document vs. `{user}`, etc.) — each function here unwraps whatever its specific endpoint actually sends; see `order-pools-backend`'s own docs for the authoritative shape per endpoint.
 - The Thawani checkout redirect is a genuine full-page hand-off: `PoolDetailPage`'s join flow does `window.location.assign(checkoutUrl)` to Thawani's own hosted page, and `PaymentResultPage` (mounted at `/payments/:paymentId/result`, outside any role-guarded tree) is where Thawani redirects back to. See `CLAUDE.md`'s "The payment redirect flow" for how that reconciles.
 
 ## Auth

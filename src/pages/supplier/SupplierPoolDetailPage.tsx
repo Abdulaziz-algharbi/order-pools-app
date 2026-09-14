@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
-import { getPool } from "@/mocks/api";
+import { getPool } from "@/services/api";
 import { PoolOverview } from "@/components/domain/PoolOverview";
 import { PageSpinner } from "@/components/ui/Spinner";
 import { ErrorState } from "@/components/ui/ErrorState";

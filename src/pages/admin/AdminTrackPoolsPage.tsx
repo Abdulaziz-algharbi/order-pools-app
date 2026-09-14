@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useFetch } from "@/hooks/useFetch";
-import { listDeliveries, listPools, updateDeliveryStatus } from "@/mocks/api";
+import { listDeliveries, listPools, updateDeliveryStatus } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";

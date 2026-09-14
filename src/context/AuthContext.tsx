@@ -18,7 +18,7 @@ import {
   updateMyProfile,
   type RegisterInput,
   type UpdateProfileInput,
-} from "@/mocks/api";
+} from "@/services/api";
 
 interface AuthContextValue {
   user: AppUser | null;
@@ -29,7 +29,7 @@ interface AuthContextValue {
   updateProfile: (patch: UpdateProfileInput) => Promise<AppUser>;
   /** Returns whether the account was actually deleted (RETAILER) vs. a
    *  removal request was filed instead (SUPPLIER) — see removeAccount()
-   *  in mocks/api.ts. Clears the session locally only when deleted. */
+   *  in services/api.ts. Clears the session locally only when deleted. */
   removeAccount: (reason: string) => Promise<{ deleted: boolean }>;
 }
 

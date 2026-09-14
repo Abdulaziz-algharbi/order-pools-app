@@ -1,6 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { useFetch } from "@/hooks/useFetch";
-import { listComplaints, listOffers, listPools, listSupplierRequests } from "@/mocks/api";
+import { listComplaints, listOffers, listPools, listSupplierRequests } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { LinkButton } from "@/components/ui/LinkButton";

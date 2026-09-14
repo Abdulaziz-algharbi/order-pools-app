@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
-import { createAddress, getPool, joinPool, listMyAddresses } from "@/mocks/api";
+import { createAddress, getPool, joinPool, listMyAddresses } from "@/services/api";
 import { AddressFields, emptyAddressFields } from "@/components/domain/AddressFields";
 import { PoolOverview } from "@/components/domain/PoolOverview";
 import { Button } from "@/components/ui/Button";

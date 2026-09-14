@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
-import { listPools } from "@/mocks/api";
+import { listPools } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";

@@ -6,7 +6,7 @@ See [`docs/project-scope.md`](docs/project-scope.md) for the full product scope,
 
 ## Status
 
-This build is **not connected to a real backend yet**. All data (users, pools, offers, complaints, notifications) is served from an in-memory mock API (`src/mocks/api.ts`) seeded with sample data. Every function in that module is already shaped like a real HTTP call, so wiring up the real backend is expected to be a contained change to that one file.
+This is a real client against a real backend, [`order-pools-backend`](../order-pools-backend) (a sibling repo). `src/services/api.ts` is the typed API client every page/component calls through; there is no mock or in-memory data.
 
 ## Getting started
 
@@ -15,7 +15,7 @@ npm install
 npm run dev
 ```
 
-Open the printed local URL and sign in from the **Demo accounts** panel on the login screen — pick any retailer, supplier, or administrator account to explore that role's dashboard. There's no real password check yet.
+Open the printed local URL and sign in or sign up for a real account — there is no demo-account shortcut, and `order-pools-backend` must be running for the app to do anything.
 
 ## Commands
 
@@ -42,7 +42,8 @@ src/
     retailer/  supplier/  admin/  shared/  auth/
   routes/      router config and role-based route guards
   context/     auth context
-  mocks/       mock API + seed data (stands in for the backend)
+  services/    API client (src/services/api.ts) against the real backend
+  lib/         fetch wrapper, token storage, and other low-level helpers
   types/       domain types (Pool, SupplierOffer, Complaint, ...)
   config/      per-role navigation config
 docs/

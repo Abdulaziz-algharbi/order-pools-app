@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
-import { deleteOffer, getOffer, updateOwnOffer } from "@/mocks/api";
+import { deleteOffer, getOffer, updateOwnOffer } from "@/services/api";
 import { Card, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PageSpinner } from "@/components/ui/Spinner";

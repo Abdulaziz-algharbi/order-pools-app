@@ -1,6 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { useFetch } from "@/hooks/useFetch";
-import { listOffers, listPools } from "@/mocks/api";
+import { listOffers, listPools } from "@/services/api";
 import { useNotifications } from "@/hooks/useNotifications";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";

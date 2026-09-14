@@ -6,7 +6,7 @@ import {
   listMyParticipants,
   listPools,
   updateOwnComplaint,
-} from "@/mocks/api";
+} from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";

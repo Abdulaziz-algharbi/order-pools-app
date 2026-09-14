@@ -1,6 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { useFetch } from "@/hooks/useFetch";
-import { listMyAddresses } from "@/mocks/api";
+import { listMyAddresses } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ProfileCard } from "@/components/domain/ProfileCard";
 import { ProfileActions } from "@/components/domain/ProfileActions";

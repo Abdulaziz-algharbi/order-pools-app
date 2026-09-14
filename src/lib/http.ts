@@ -3,7 +3,7 @@
  * JSON body the endpoint sent — response envelopes are NOT uniform across
  * the backend (`{message,data}` vs a raw document vs `{user}`, see
  * order-pools-backend docs) — so unwrapping the right shape is each
- * `lib/api.ts` function's job, not this layer's.
+ * `services/api.ts` function's job, not this layer's.
  *
  * Handles attaching the access token, and transparently retrying once
  * after a silent refresh on a 401 (concurrent 401s share one in-flight

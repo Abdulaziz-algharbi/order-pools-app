@@ -3,7 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { defaultPanelFor } from "@/lib/panel";
 import { ApiError } from "@/lib/http";
-import { createUnlinkedAddress } from "@/mocks/api";
+import { createUnlinkedAddress } from "@/services/api";
 import { Button } from "@/components/ui/Button";
 import { FieldWrapper, Input } from "@/components/ui/Field";
 import { AddressFields, emptyAddressFields, type AddressFieldsValue } from "@/components/domain/AddressFields";

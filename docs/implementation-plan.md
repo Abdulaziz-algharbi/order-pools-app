@@ -11,7 +11,7 @@
 - [x] Role-based route guards (`ProtectedRoute`)
 - [x] Responsive app shell: fixed sidebar (desktop) / drawer (mobile), topbar with notification dropdown and profile menu
 - [x] Reusable UI kit: Button, LinkButton, Card, StatusBadge, ProgressBar, Modal, DataTable (responsive card fallback), Pagination, EmptyState, ErrorState, Spinner/Skeleton, form fields
-- [x] Real API client (`src/mocks/api.ts` — name predates the backend integration) against every service `order-pools-backend` exposes
+- [x] Real API client (`src/services/api.ts`, renamed from `src/mocks/api.ts`) against every service `order-pools-backend` exposes
 
 ## Phase 2 — Retailer ✅ Done
 

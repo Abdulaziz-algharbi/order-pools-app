@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { cancelPayment, confirmPayment } from "@/mocks/api";
+import { cancelPayment, confirmPayment } from "@/services/api";
 import { Card, CardContent } from "@/components/ui/Card";
 import { LinkButton } from "@/components/ui/LinkButton";
 import { PageSpinner } from "@/components/ui/Spinner";

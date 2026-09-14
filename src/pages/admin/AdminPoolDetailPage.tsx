@@ -9,7 +9,7 @@ import {
   listPoolParticipants,
   updateDeliveryStatus,
   listDeliveries,
-} from "@/mocks/api";
+} from "@/services/api";
 import { PoolOverview, type PoolParticipantRow } from "@/components/domain/PoolOverview";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";

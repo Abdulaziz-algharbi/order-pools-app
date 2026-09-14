@@ -1,5 +1,5 @@
 import { useFetch } from "@/hooks/useFetch";
-import { listPools } from "@/mocks/api";
+import { listPools } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PoolCard } from "@/components/domain/PoolCard";
 import { LinkButton } from "@/components/ui/LinkButton";

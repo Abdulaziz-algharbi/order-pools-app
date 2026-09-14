@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
-import { cancelPayment, listMyParticipants, listMyPayments, listPools, withdrawParticipant } from "@/mocks/api";
+import { cancelPayment, listMyParticipants, listMyPayments, listPools, withdrawParticipant } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";

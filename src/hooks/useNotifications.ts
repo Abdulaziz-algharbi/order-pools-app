@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AppNotification } from "@/types/domain";
-import { listNotifications, markNotificationRead } from "@/mocks/api";
+import { listNotifications, markNotificationRead } from "@/services/api";
 
 // The backend redacts `recipients` down to just the caller's own entry for
 // a non-admin caller, so this is safe to use for retailer/supplier; for an
