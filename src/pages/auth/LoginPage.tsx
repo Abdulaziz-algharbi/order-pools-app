@@ -1,10 +1,10 @@
-import { useState, type FormEvent } from "react";
-import { Link, Navigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import { defaultPanelFor } from "@/lib/panel";
-import { ApiError } from "@/lib/http";
 import { Button } from "@/components/ui/Button";
 import { FieldWrapper, Input } from "@/components/ui/Field";
+import { useAuth } from "@/context/AuthContext";
+import { ApiError } from "@/lib/http";
+import { defaultPanelFor } from "@/lib/panel";
+import { useState, type FormEvent } from "react";
+import { Link, Navigate } from "react-router-dom";
 
 export function LoginPage() {
   const { user, login, isLoading } = useAuth();
@@ -40,15 +40,23 @@ export function LoginPage() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-lg font-bold text-white">
-            OP
+            OP - action working?
           </div>
-          <h1 className="font-heading text-2xl font-semibold text-white">Order Pool</h1>
-          <p className="mt-1 text-sm text-slate-400">Wholesale group purchasing, made accessible.</p>
+          <h1 className="font-heading text-2xl font-semibold text-white">
+            Order Pool
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Wholesale group purchasing, made accessible.
+          </p>
         </div>
 
         <div className="rounded-2xl bg-white p-6 shadow-xl sm:p-8">
-          <h2 className="font-heading text-lg font-semibold text-primary">Sign in</h2>
-          <p className="mt-1 text-sm text-slate-500">Enter your account email and password.</p>
+          <h2 className="font-heading text-lg font-semibold text-primary">
+            Sign in
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Enter your account email and password.
+          </p>
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <FieldWrapper label="Email" htmlFor="email" required>
               <Input
@@ -77,7 +85,10 @@ export function LoginPage() {
           </form>
           <p className="mt-4 text-center text-sm text-slate-500">
             New here?{" "}
-            <Link to="/signup" className="font-medium text-tertiary hover:underline">
+            <Link
+              to="/signup"
+              className="font-medium text-tertiary hover:underline"
+            >
               Create an account
             </Link>
           </p>
