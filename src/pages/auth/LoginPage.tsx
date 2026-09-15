@@ -46,7 +46,7 @@ export function LoginPage() {
             Order Pool
           </h1>
           <p className="mt-1 text-sm text-slate-400">
-            Wholesale group purchasing, made accessible.
+            Wholesale group purchasing, made accessible. it is only another test
           </p>
         </div>
 
