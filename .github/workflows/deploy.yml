@@ -1,36 +1,77 @@
-name: order pools ci
+# Builds and ships this repo's own code directly to S3/CloudFront.
+# Unlike the backend, this is self-contained rather than calling a
+# reusable workflow from order-pools-infrastructure: there's no
+# multi-step remote-execution mechanism to keep DRY here (no SSM, no
+# render/send/poll dance) — just a handful of aws s3/cloudfront CLI
+# calls mirroring frontend/deploy-frontend.sh in that repo. Introducing
+# a cross-repo call for something this small would add more indirection
+# than it removes duplication.
+name: Deploy frontend
 
 on:
-  push:
-    branches:
-      - 'release'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options: [dev]
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [22.x]
-
+    environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v1
-      - run: npm install --legacy-peer-deps
-      - run: npm run build
-      - uses: jakejarvis/s3-sync-action@master
-        with:
-          args: --acl public-read --follow-symlinks --delete
-        env:
-          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: 'eu-north-1'
-          SOURCE_DIR: 'dist'
+      - uses: actions/checkout@v4
 
-      - uses: chetan/invalidate-cloudfront-action@master
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.FRONTEND_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Resolve frontend resource IDs from SSM Parameter Store
+        id: resolve
+        run: |
+          set -Eeuo pipefail
+          PATH_PREFIX="/order-pool/${{ inputs.environment }}/state/frontend"
+          echo "bucket=$(aws ssm get-parameter --name "${PATH_PREFIX}/bucket-name" --query Parameter.Value --output text)" >> "$GITHUB_OUTPUT"
+          echo "dist_id=$(aws ssm get-parameter --name "${PATH_PREFIX}/distribution-id" --query Parameter.Value --output text)" >> "$GITHUB_OUTPUT"
+
+      - run: npm ci
+
+      - name: Build
+        # Exported as a real env var, not written into .env.production —
+        # same reasoning as frontend/deploy-frontend.sh: Vite's
+        # documented precedence rule is that an already-set process env
+        # var overrides a .env file value, so dev/prod builds can target
+        # different API domains without touching a tracked file.
         env:
-          DISTRIBUTION: ${{ secrets.AWS_DISTRIBUTION_PRODUCTION }}
-          PATHS: '/*'
-          AWS_REGION: 'eu-north-1'
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          VITE_API_BASE_URL: https://${{ vars.BACKEND_DOMAIN }}/api/v1
+        run: npm run build
+
+      - name: Sync hashed assets (long cache — safe, filenames are content-hashed)
+        run: |
+          aws s3 sync dist "s3://${{ steps.resolve.outputs.bucket }}" \
+            --delete --exclude index.html \
+            --cache-control "public,max-age=31536000,immutable"
+
+      - name: Upload index.html separately (no-cache — must always revalidate)
+        run: |
+          aws s3 cp dist/index.html "s3://${{ steps.resolve.outputs.bucket }}/index.html" \
+            --cache-control "no-cache"
+
+      - name: Invalidate CloudFront (counts as 1 path — effectively free)
+        run: |
+          set -Eeuo pipefail
+          DIST_ID="${{ steps.resolve.outputs.dist_id }}"
+          INVALIDATION_ID=$(aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*" --query 'Invalidation.Id' --output text)
+          aws cloudfront wait invalidation-completed --distribution-id "$DIST_ID" --id "$INVALIDATION_ID"
