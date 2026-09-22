@@ -52,7 +52,7 @@ export function LoginPage() {
 
         <div className="rounded-2xl bg-white p-6 shadow-xl sm:p-8">
           <h2 className="font-heading text-lg font-semibold text-primary">
-            Sign in
+            Sign in bro
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             Enter your account email and password.
