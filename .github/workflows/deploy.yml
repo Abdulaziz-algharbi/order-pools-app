@@ -8,13 +8,24 @@
 # than it removes duplication.
 name: Deploy frontend
 
+# Auto-deploys on every push to main (continuous deployment) — there's
+# only one environment (dev) right now, so push-to-main always targets
+# it. workflow_dispatch is kept too, for a manual re-run/redeploy
+# without needing an empty commit. A push event has no `inputs` context
+# at all, so every `inputs.environment` reference below falls back to
+# 'dev' — the only real branch-to-environment mapping decision (e.g. a
+# release branch or tag triggering a future prod environment) is
+# deferred until prod actually exists, not decided here.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       environment:
         description: "Target environment"
-        required: true
+        required: false
         type: choice
+        default: dev
         options: [dev]
 
 permissions:
@@ -24,7 +35,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
+    environment: ${{ inputs.environment || 'dev' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -42,7 +53,7 @@ jobs:
         id: resolve
         run: |
           set -Eeuo pipefail
-          PATH_PREFIX="/order-pool/${{ inputs.environment }}/state/frontend"
+          PATH_PREFIX="/order-pool/${{ inputs.environment || 'dev' }}/state/frontend"
           echo "bucket=$(aws ssm get-parameter --name "${PATH_PREFIX}/bucket-name" --query Parameter.Value --output text)" >> "$GITHUB_OUTPUT"
           echo "dist_id=$(aws ssm get-parameter --name "${PATH_PREFIX}/distribution-id" --query Parameter.Value --output text)" >> "$GITHUB_OUTPUT"
 
