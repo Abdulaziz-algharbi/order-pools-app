@@ -57,7 +57,7 @@
 - [x] Form validation feedback (inline field errors) on every form
 - [x] Manual end-to-end verification of every flow above against a real running backend in a browser (not just the mock-data era's headless walkthrough) — see individual PR/commit descriptions for what was exercised
 - [ ] Accessibility pass (keyboard navigation, focus management in modals, ARIA labeling audit beyond the basics already in place)
-- [ ] Automated test coverage (no test runner is configured yet)
+- [~] Automated test coverage — Vitest + React Testing Library configured; only the auth/session layer (`lib/http.ts`, `AuthContext`, auth API wrappers) is covered so far
 - [ ] Performance pass (bundle is currently a single ~120 KB gzipped chunk — no route-based code splitting yet)
 - [ ] Visual QA against the design reference images beyond the pages already spot-checked
 

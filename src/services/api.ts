@@ -46,11 +46,10 @@ interface Envelope<T> {
 // Auth
 // ---------------------------------------------------------------------------
 
-export async function login(
-  email: string,
-  password: string,
-): Promise<{ accessToken: string; refreshToken: string }> {
-  return request("/auth/login", { method: "POST", body: { email, password }, auth: false });
+// Access/refresh tokens are set as httpOnly cookies by the backend — the
+// response body carries no token for this layer to return.
+export async function login(email: string, password: string): Promise<void> {
+  await request("/auth/login", { method: "POST", body: { email, password }, auth: false });
 }
 
 export interface RegisterInput {
@@ -67,10 +66,8 @@ export interface RegisterInput {
 // Every account starts RETAILER-only (see AuthController.register) — there
 // is no way to self-register as SUPPLIER; that's a separate promotion via
 // createSupplierRequest() once signed in.
-export async function register(
-  input: RegisterInput,
-): Promise<{ accessToken: string; refreshToken: string }> {
-  return request("/auth/register", { method: "POST", body: input, auth: false });
+export async function register(input: RegisterInput): Promise<void> {
+  await request("/auth/register", { method: "POST", body: input, auth: false });
 }
 
 export async function logout(): Promise<void> {

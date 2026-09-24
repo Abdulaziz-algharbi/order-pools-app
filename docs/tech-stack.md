@@ -16,7 +16,7 @@
 | Auth | Real JWT access/refresh tokens (see "Auth" below) |
 | Linting | ESLint 9 (flat config) + typescript-eslint |
 
-No component library, no state-management library, no CSS-in-JS, no test runner.
+No component library, no state-management library, no CSS-in-JS. Tests: Vitest + React Testing Library + MSW (dev-only).
 
 ## Why these choices
 
@@ -36,13 +36,13 @@ No component library, no state-management library, no CSS-in-JS, no test runner.
 
 There is a real backend: `order-pools-backend` (a sibling repo). `VITE_API_BASE_URL` (`.env`, e.g. `http://localhost:8000/api/v1` in local dev) points at it.
 
-- `src/lib/http.ts` — the only place that calls `fetch()` directly. Attaches `Authorization: Bearer <accessToken>` from `src/lib/tokenStore.ts`; on a 401 it silently attempts one token refresh (de-duplicated — concurrent 401s share one in-flight refresh, not one each) and retries the original request once before giving up and dispatching a `order-pool:session-expired` window event (handled by `AuthContext`, which drops the session).
+- `src/lib/http.ts` — the only place that makes HTTP calls (an axios instance). Sends the httpOnly auth cookies (`withCredentials`) and echoes the `XSRF-TOKEN` cookie as `X-XSRF-TOKEN` (`withXSRFToken`, required because api./app. are different origins); on a 401 it silently attempts one token refresh (de-duplicated — concurrent 401s share one in-flight refresh, not one each) and retries the original request once before giving up and dispatching a `order-pool:session-expired` window event (handled by `AuthContext`, which drops the session).
 - `src/services/api.ts` — the real, only API client (formerly `src/mocks/api.ts`, a name left over from before the real backend was wired up). Every page/component calls functions from here, never `lib/http` directly. Response envelopes are **not uniform** across the backend (`{message, data}` vs. a raw document vs. `{user}`, etc.) — each function here unwraps whatever its specific endpoint actually sends; see `order-pools-backend`'s own docs for the authoritative shape per endpoint.
 - The Thawani checkout redirect is a genuine full-page hand-off: `PoolDetailPage`'s join flow does `window.location.assign(checkoutUrl)` to Thawani's own hosted page, and `PaymentResultPage` (mounted at `/payments/:paymentId/result`, outside any role-guarded tree) is where Thawani redirects back to. See `CLAUDE.md`'s "The payment redirect flow" for how that reconciles.
 
 ## Auth
 
-Real JWT access/refresh tokens (`src/lib/tokenStore.ts`, currently `localStorage`) — no demo-account shortcut. `AuthContext` exposes `login`, `signup`, `logout`, `updateProfile` (`PATCH /auth/me` — name/phone/company/password, never roles or email), and `removeAccount` (`DELETE /auth/remove` — deletes a retailer-only account immediately; for an account holding `SUPPLIER`, files a review request instead and returns `{ deleted: false }`, which `AuthContext` uses to decide whether to actually clear the local session).
+Real JWT access/refresh tokens, held only in httpOnly cookies set and cleared by the backend (never in `localStorage`, never readable by JS) — no demo-account shortcut. `AuthContext` exposes `login`, `signup`, `logout`, `updateProfile` (`PATCH /auth/me` — name/phone/company/password, never roles or email), and `removeAccount` (`DELETE /auth/remove` — deletes a retailer-only account immediately; for an account holding `SUPPLIER`, files a review request instead and returns `{ deleted: false }`, which `AuthContext` uses to decide whether to actually clear the local session).
 
 ## Project conventions
 
@@ -67,6 +67,6 @@ npm run preview   # serve the production build locally
 
 ## Known gaps (as of this writing)
 
-- **No automated tests.** No test runner is configured; UI correctness is verified manually — run the dev server against a running backend and exercise the flow in a real browser.
+- **Narrow automated tests.** Vitest + React Testing Library cover the auth/session layer (`npm test`); page-level UI correctness is still verified manually — run the dev server against a running backend and exercise the flow in a real browser.
 - **No route-based code splitting.** The production build is a single JS chunk (~120 KB gzipped as of this writing).
 - **No accessibility pass beyond the basics already in place** (keyboard navigation, focus management in modals, a full ARIA labeling audit).

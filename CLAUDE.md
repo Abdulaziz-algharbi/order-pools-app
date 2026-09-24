@@ -8,7 +8,7 @@ Order Pool is the frontend for a wholesale group-buying platform. Multiple **ret
 
 For more detail than fits here: `docs/project-scope.md` (product spec and terminology), `docs/tech-stack.md` (architecture rationale and conventions), `docs/implementation-plan.md` (phase-by-phase status).
 
-**This is a real client against a real backend** — `order-pools-backend` (a sibling repo; see its own `CLAUDE.md`/`docs/` for the API side). `src/lib/http.ts` is a thin `fetch` wrapper that attaches the JWT access token and silently retries once on a 401 after refreshing it; `src/services/api.ts` (previously `src/mocks/api.ts` — that name predated the real integration and has been renamed since nothing in it is mocked) is the *only* module that calls `request()` from `lib/http.ts`. Pages and components only ever import from `api.ts`, never call `lib/http` directly and never construct a URL themselves — that module is the one place that knows each endpoint's request/response shape (which is **not uniform**: most `getById`/`list`/`update` calls return `{ message, data }`, several `create` calls return the raw saved document, and `/auth/me` returns `{ user }` — each function in `api.ts` unwraps whatever its specific endpoint actually sends).
+**This is a real client against a real backend** — `order-pools-backend` (a sibling repo; see its own `CLAUDE.md`/`docs/` for the API side). `src/lib/http.ts` is a thin axios wrapper that sends the backend's httpOnly auth cookies (`withCredentials`), echoes the `XSRF-TOKEN` cookie back as the `X-XSRF-TOKEN` CSRF header (`withXSRFToken`), and silently retries once on a 401 after refreshing the session; `src/services/api.ts` (previously `src/mocks/api.ts` — that name predated the real integration and has been renamed since nothing in it is mocked) is the *only* module that calls `request()` from `lib/http.ts`. Pages and components only ever import from `api.ts`, never call `lib/http` directly and never construct a URL themselves — that module is the one place that knows each endpoint's request/response shape (which is **not uniform**: most `getById`/`list`/`update` calls return `{ message, data }`, several `create` calls return the raw saved document, and `/auth/me` returns `{ user }` — each function in `api.ts` unwraps whatever its specific endpoint actually sends).
 
 ## Commands
 
@@ -17,9 +17,11 @@ npm run dev       # start Vite dev server
 npm run build     # tsc -b type-check, then vite build
 npm run lint      # eslint .
 npm run preview   # preview a production build
+npm test          # vitest run (tests/, mirroring src/)
+npm run test:watch
 ```
 
-There is no test runner configured for this repo (the backend has one — see `order-pools-backend`'s `docs/tech-stack.md`). UI correctness is verified manually: run the dev server against a running backend and exercise the flow in a browser before calling a change done.
+Tests use Vitest + React Testing Library (jsdom), living in `tests/` mirroring `src/` like the backend's Jest suite. HTTP-level tests (`tests/lib/http.test.ts`) use MSW so requests go through axios's real XHR adapter — that's where cookie credentials and the XSRF header are actually applied, so a mocked adapter would bypass what's being tested. Coverage is still narrow (auth/session layer only) — UI flows are otherwise verified manually: run the dev server against a running backend and exercise the flow in a browser before calling a change done.
 
 ## Architecture
 
@@ -31,7 +33,7 @@ Types mirror the backend's actual wire format exactly — field names, Mongo-sty
 
 ### Auth & routing
 
-`src/context/AuthContext.tsx` holds the signed-in `AppUser`, fetched from a real `GET /auth/me` using a JWT stored via `src/lib/tokenStore.ts`. `login`/`signup` call the real `POST /auth/login` / `POST /auth/register`; `updateProfile`/`removeAccount` call `PATCH` / `DELETE /auth/me` and `/auth/remove` respectively. There is no demo-account shortcut — every session is a real authenticated one.
+`src/context/AuthContext.tsx` holds the signed-in `AppUser`, fetched from a real `GET /auth/me`. Auth is entirely httpOnly-cookie based (set/cleared by the backend) — no token is ever visible to or stored by JS, so on load the app just calls `/auth/me` and treats a 401 as signed out. `login`/`signup` call the real `POST /auth/login` / `POST /auth/register`; `updateProfile`/`removeAccount` call `PATCH` / `DELETE /auth/me` and `/auth/remove` respectively. There is no demo-account shortcut — every session is a real authenticated one.
 
 `src/routes/router.tsx` defines three parallel route trees under `/retailer`, `/supplier`, `/admin`, each wrapped by `ProtectedRoute` (`src/routes/ProtectedRoute.tsx`), which redirects to `/login` if signed out or to the user's own role root if the role doesn't match the route (a dual-role user's "own root" is resolved by `src/lib/panel.ts`'s priority order: admin > supplier > retailer). Each leaf route sets `handle: { title }`; `AppShell` reads the deepest match's handle via `useMatches()` to drive the Topbar heading — add `handle: { title: "..." }` on any new route rather than hardcoding a page title elsewhere.
 

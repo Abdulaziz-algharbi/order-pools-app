@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import type { AppUser } from "@/types/domain";
-import { getAccessToken, clearTokens, setTokens } from "@/lib/tokenStore";
 import {
   fetchCurrentUser,
   login as apiLogin,
@@ -40,16 +39,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!getAccessToken()) {
-      setIsLoading(false);
-      return;
-    }
+    // No client-visible token to check first (httpOnly cookie) — just
+    // attempt /auth/me and treat a 401 as "logged out", same as any other
+    // unauthenticated result rather than an error to surface.
     fetchCurrentUser()
       .then(setUser)
-      .catch(() => {
-        clearTokens();
-        setUser(null);
-      })
+      .catch(() => setUser(null))
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -64,24 +59,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { accessToken, refreshToken } = await apiLogin(email, password);
-    setTokens(accessToken, refreshToken);
+    // Cookies are set by the browser from the response's Set-Cookie
+    // headers — nothing to store locally.
+    await apiLogin(email, password);
     const me = await fetchCurrentUser();
     setUser(me);
   }, []);
 
   const signup = useCallback(async (input: RegisterInput) => {
-    const { accessToken, refreshToken } = await apiRegister(input);
-    setTokens(accessToken, refreshToken);
+    await apiRegister(input);
     const me = await fetchCurrentUser();
     setUser(me);
   }, []);
 
   const logout = useCallback(() => {
     apiLogout().catch(() => {
-      // Best-effort — the tokens are cleared locally regardless.
+      // Best-effort — reflect signed-out state locally regardless; the
+      // backend clears its cookies on success, and a stale cookie left
+      // behind by a failed call is harmless (it just fails auth next use).
     });
-    clearTokens();
     setUser(null);
   }, []);
 
@@ -94,7 +90,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const removeAccount = useCallback(async (reason: string) => {
     const result = await apiRemoveAccount(reason);
     if (result.deleted) {
-      clearTokens();
       setUser(null);
     }
     return result;
