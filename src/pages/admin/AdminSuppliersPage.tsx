@@ -258,6 +258,16 @@ export function AdminSuppliersPage() {
                   <div className="min-w-0">
                     <p className="font-medium text-primary">{requesterNames.get(req.user_ref) ?? "…"}</p>
                     <p className="mt-1 text-sm text-slate-600">{req.description}</p>
+                    <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+                      <div>
+                        <dt className="inline text-slate-400">CR: </dt>
+                        <dd className="inline font-medium text-primary">{req.commercialRegistration ?? "Not provided"}</dd>
+                      </div>
+                      <div>
+                        <dt className="inline text-slate-400">VAT: </dt>
+                        <dd className="inline font-medium text-primary">{req.vatNumber ?? "Not provided"}</dd>
+                      </div>
+                    </dl>
                     <p className="mt-1 text-xs text-slate-400">Submitted {formatDate(req.createdAt)}</p>
                   </div>
                   <div className="flex shrink-0 gap-2">

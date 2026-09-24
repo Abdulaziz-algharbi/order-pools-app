@@ -23,6 +23,8 @@ const pendingRequest: SupplierRequest = {
   _id: "req-1",
   user_ref: "retailer-1",
   description: "We import basmati rice by the container.",
+  commercialRegistration: "1234567",
+  vatNumber: "OM1100012345",
   status: "PENDING",
   adminComment: null,
   createdAt: "2026-09-20T00:00:00.000Z",
@@ -53,6 +55,22 @@ async function openRejectModal() {
 }
 
 describe("AdminSuppliersPage — reviewing supplier requests", () => {
+  it("shows the business identifiers the retailer submitted", async () => {
+    await renderPage();
+
+    expect(screen.getByText("1234567")).toBeInTheDocument();
+    expect(screen.getByText("OM1100012345")).toBeInTheDocument();
+  });
+
+  it("marks identifiers missing from a request filed before they were collected", async () => {
+    mockedApi.listSupplierRequests.mockResolvedValue([
+      { ...pendingRequest, commercialRegistration: null, vatNumber: null },
+    ]);
+    await renderPage();
+
+    expect(screen.getAllByText("Not provided")).toHaveLength(2);
+  });
+
   it("rejects with the admin's note so the retailer knows what to change", async () => {
     mockedApi.decideSupplierRequest.mockResolvedValue({ ...pendingRequest, status: "REJECTED" });
     await renderPage();

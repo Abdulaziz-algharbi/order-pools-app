@@ -195,6 +195,9 @@ export interface SupplierRequest {
   _id: string;
   user_ref: string;
   description: string;
+  /** Null only on requests filed before these were collected. Copied onto the user's profile on approval. */
+  commercialRegistration: string | null;
+  vatNumber: string | null;
   status: ReviewRequestStatus;
   adminComment?: string | null;
   createdAt: string;

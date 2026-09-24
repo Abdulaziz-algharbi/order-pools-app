@@ -547,10 +547,19 @@ export async function listSupplierRequests(): Promise<SupplierRequest[]> {
   );
 }
 
-export async function createSupplierRequest(description: string): Promise<SupplierRequest> {
+export interface CreateSupplierRequestInput {
+  description: string;
+  commercialRegistration: string;
+  /** Optional — VAT registration is only mandatory above a turnover threshold. */
+  vatNumber?: string;
+}
+
+export async function createSupplierRequest(
+  input: CreateSupplierRequestInput,
+): Promise<SupplierRequest> {
   const res = await request<{ message: string; data: SupplierRequest }>("/supplier-requests", {
     method: "POST",
-    body: { description },
+    body: input,
   });
   return res.data;
 }

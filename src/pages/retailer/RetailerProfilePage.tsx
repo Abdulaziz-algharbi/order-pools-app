@@ -9,10 +9,16 @@ import { ProfileActions } from "@/components/domain/ProfileActions";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { FieldWrapper, Textarea } from "@/components/ui/Field";
+import { FieldWrapper, Input, Textarea } from "@/components/ui/Field";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDate } from "@/lib/utils";
 import { ApiError } from "@/lib/http";
+
+interface RequestForm {
+  description: string;
+  commercialRegistration: string;
+  vatNumber: string;
+}
 
 export function RetailerProfilePage() {
   const { user, refreshUser } = useAuth();
@@ -23,7 +29,11 @@ export function RetailerProfilePage() {
   const { data: requests, refetch: refetchRequests } = useFetch(() => listSupplierRequests(), []);
 
   const [requestOpen, setRequestOpen] = useState(false);
-  const [description, setDescription] = useState("");
+  const [form, setForm] = useState<RequestForm>({
+    description: "",
+    commercialRegistration: "",
+    vatNumber: "",
+  });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [openingPanel, setOpeningPanel] = useState(false);
@@ -37,17 +47,40 @@ export function RetailerProfilePage() {
   // so at most one PENDING request ever exists at a time.
   const latestRequest = requests?.[0];
 
+  // Identifiers start from the profile (the user may already have entered
+  // them there), and from the previous request when requesting again.
+  const openRequestForm = () => {
+    setForm({
+      description: latestRequest?.description ?? "",
+      commercialRegistration:
+        latestRequest?.commercialRegistration ?? user.commercialRegistration ?? "",
+      vatNumber: latestRequest?.vatNumber ?? user.vatNumber ?? "",
+    });
+    setFormError(null);
+    setRequestOpen(true);
+  };
+
   const handleSubmit = async () => {
-    if (!description.trim()) {
+    const description = form.description.trim();
+    const commercialRegistration = form.commercialRegistration.trim();
+    const vatNumber = form.vatNumber.trim();
+    if (!description) {
       setFormError("Please describe your business.");
+      return;
+    }
+    if (!commercialRegistration) {
+      setFormError("Please enter your commercial registration number.");
       return;
     }
     setSubmitting(true);
     setFormError(null);
     try {
-      await createSupplierRequest(description.trim());
+      await createSupplierRequest({
+        description,
+        commercialRegistration,
+        ...(vatNumber && { vatNumber }),
+      });
       setRequestOpen(false);
-      setDescription("");
       refetchRequests();
     } catch (e) {
       setFormError(e instanceof ApiError ? e.message : "Could not submit request.");
@@ -112,7 +145,7 @@ export function RetailerProfilePage() {
               {latestRequest ? (
                 <StatusBadge status={latestRequest.status} domain="review" />
               ) : (
-                <Button onClick={() => setRequestOpen(true)}>Request supplier access</Button>
+                <Button onClick={openRequestForm}>Request supplier access</Button>
               )}
             </div>
             {latestRequest?.status === "APPROVED" && (
@@ -132,7 +165,7 @@ export function RetailerProfilePage() {
                     {latestRequest.adminComment}
                   </p>
                 )}
-                <Button size="sm" variant="outline" className="mt-2" onClick={() => setRequestOpen(true)}>
+                <Button size="sm" variant="outline" className="mt-2" onClick={openRequestForm}>
                   Request again
                 </Button>
               </div>
@@ -157,16 +190,39 @@ export function RetailerProfilePage() {
           </>
         }
       >
-        <FieldWrapper label="About your business" htmlFor="supplier-description" error={formError ?? undefined} required>
-          <Textarea
-            id="supplier-description"
-            rows={4}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="What do you sell, and how much can you supply?"
-            hasError={!!formError}
-          />
-        </FieldWrapper>
+        <div className="space-y-4">
+          <FieldWrapper label="About your business" htmlFor="supplier-description" required>
+            <Textarea
+              id="supplier-description"
+              rows={4}
+              maxLength={2000}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="What do you sell, and how much can you supply?"
+            />
+          </FieldWrapper>
+          <FieldWrapper label="Commercial registration (CR) number" htmlFor="supplier-cr" required>
+            <Input
+              id="supplier-cr"
+              maxLength={50}
+              value={form.commercialRegistration}
+              onChange={(e) => setForm({ ...form, commercialRegistration: e.target.value })}
+            />
+          </FieldWrapper>
+          <FieldWrapper
+            label="VAT number"
+            htmlFor="supplier-vat"
+            hint="Optional — only if your business is VAT-registered."
+          >
+            <Input
+              id="supplier-vat"
+              maxLength={50}
+              value={form.vatNumber}
+              onChange={(e) => setForm({ ...form, vatNumber: e.target.value })}
+            />
+          </FieldWrapper>
+          {formError && <p className="text-sm text-red-600">{formError}</p>}
+        </div>
       </Modal>
     </div>
   );
