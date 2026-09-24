@@ -25,6 +25,11 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   signup: (input: RegisterInput) => Promise<void>;
   logout: () => void;
+  /** Re-reads the signed-in account from `/auth/me` — for when its roles
+   *  may have changed server-side mid-session (e.g. an approved supplier
+   *  request). The backend re-issues the session cookies in the same call
+   *  when the token's roles are stale, so API access follows along. */
+  refreshUser: () => Promise<AppUser>;
   updateProfile: (patch: UpdateProfileInput) => Promise<AppUser>;
   /** Returns whether the account was actually deleted (RETAILER) vs. a
    *  removal request was filed instead (SUPPLIER) — see removeAccount()
@@ -81,6 +86,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const me = await fetchCurrentUser();
+    setUser(me);
+    return me;
+  }, []);
+
   const updateProfile = useCallback(async (patch: UpdateProfileInput) => {
     const updated = await updateMyProfile(patch);
     setUser(updated);
@@ -96,8 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, isLoading, login, signup, logout, updateProfile, removeAccount }),
-    [user, isLoading, login, signup, logout, updateProfile, removeAccount],
+    () => ({ user, isLoading, login, signup, logout, refreshUser, updateProfile, removeAccount }),
+    [user, isLoading, login, signup, logout, refreshUser, updateProfile, removeAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

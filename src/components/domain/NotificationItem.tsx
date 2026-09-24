@@ -6,6 +6,9 @@ const ICONS: Record<AppNotification["type"], string> = {
   PAYMENT_COMPLETED: "✅",
   PAYMENT_FAILED: "⚠️",
   PAYMENT_REFUNDED: "↩️",
+  SUPPLIER_REQUEST_CREATED: "📝",
+  SUPPLIER_REQUEST_APPROVED: "🎉",
+  SUPPLIER_REQUEST_REJECTED: "✉️",
 };
 
 interface NotificationItemProps {

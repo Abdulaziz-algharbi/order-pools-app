@@ -241,7 +241,10 @@ export type NotificationType =
   | "DELIVERY_ASSIGNED"
   | "PAYMENT_COMPLETED"
   | "PAYMENT_FAILED"
-  | "PAYMENT_REFUNDED";
+  | "PAYMENT_REFUNDED"
+  | "SUPPLIER_REQUEST_CREATED"
+  | "SUPPLIER_REQUEST_APPROVED"
+  | "SUPPLIER_REQUEST_REJECTED";
 
 export type NotificationPriority = "LOW" | "NORMAL" | "HIGH";
 

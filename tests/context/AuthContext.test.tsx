@@ -61,6 +61,7 @@ function Probe() {
         signup
       </button>
       <button onClick={auth.logout}>logout</button>
+      <button onClick={() => auth.refreshUser().catch(() => {})}>refresh</button>
       <button onClick={() => auth.updateProfile({ firstName: "Ayesha" })}>update</button>
       <button onClick={() => auth.removeAccount("closing shop")}>remove</button>
     </div>
@@ -194,6 +195,22 @@ describe("AuthProvider — actions", () => {
     await userEvent.click(screen.getByRole("button", { name: "logout" }));
 
     expect(status()).toHaveTextContent("signed-out");
+  });
+
+  it("refreshUser re-reads /auth/me so a role granted mid-session is picked up", async () => {
+    mockedApi.login.mockResolvedValue(undefined);
+    mockedApi.fetchCurrentUser
+      .mockResolvedValueOnce(retailer)
+      .mockResolvedValueOnce({ ...retailer, email: "now-supplier@example.com", roles: ["RETAILER", "SUPPLIER"] });
+    renderWithProvider();
+    await waitFor(() => expect(status()).toHaveTextContent("signed-out"));
+    await userEvent.click(screen.getByRole("button", { name: "login" }));
+    await waitFor(() => expect(status()).toHaveTextContent("signed-in:aisha@example.com"));
+
+    await userEvent.click(screen.getByRole("button", { name: "refresh" }));
+
+    await waitFor(() => expect(status()).toHaveTextContent("signed-in:now-supplier@example.com"));
+    expect(mockedApi.fetchCurrentUser).toHaveBeenCalledTimes(3);
   });
 
   it("updateProfile replaces the user with the backend's response", async () => {

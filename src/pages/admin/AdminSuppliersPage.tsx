@@ -15,7 +15,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { FieldWrapper, Input } from "@/components/ui/Field";
+import { FieldWrapper, Input, Textarea } from "@/components/ui/Field";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { PlusIcon, TrashIcon } from "@/components/ui/icons";
 import { formatDate } from "@/lib/utils";
@@ -90,6 +90,11 @@ export function AdminSuppliersPage() {
   const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [requestActionId, setRequestActionId] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<SupplierRequest | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
+  const [rejectError, setRejectError] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState(false);
 
   const handleCreate = async () => {
     if (
@@ -145,14 +150,45 @@ export function AdminSuppliersPage() {
     }
   };
 
-  const handleRequestDecision = async (req: SupplierRequest, status: "APPROVED" | "REJECTED") => {
+  const handleApproveRequest = async (req: SupplierRequest) => {
     setRequestActionId(req._id);
+    setRequestError(null);
     try {
-      await decideSupplierRequest(req._id, { status });
+      await decideSupplierRequest(req._id, { status: "APPROVED" });
       refetchRequests();
-      if (status === "APPROVED") refetch();
+      refetch();
+    } catch (e) {
+      setRequestError(e instanceof ApiError ? e.message : "Could not approve the request.");
     } finally {
       setRequestActionId(null);
+    }
+  };
+
+  const openRejectModal = (req: SupplierRequest) => {
+    setRejectTarget(req);
+    setRejectNote("");
+    setRejectError(null);
+  };
+
+  // The note is optional but is shown to the retailer on their profile
+  // and in their rejection notification, so they know what to fix before
+  // requesting again.
+  const handleRejectRequest = async () => {
+    if (!rejectTarget) return;
+    setRejecting(true);
+    setRejectError(null);
+    try {
+      const note = rejectNote.trim();
+      await decideSupplierRequest(rejectTarget._id, {
+        status: "REJECTED",
+        ...(note && { adminComment: note }),
+      });
+      setRejectTarget(null);
+      refetchRequests();
+    } catch (e) {
+      setRejectError(e instanceof ApiError ? e.message : "Could not reject the request.");
+    } finally {
+      setRejecting(false);
     }
   };
 
@@ -214,6 +250,7 @@ export function AdminSuppliersPage() {
       {pendingRequests.length > 0 && (
         <section>
           <PageHeader title="Pending supplier requests" description="Retailers who have requested to also become a supplier." />
+          {requestError && <p className="mb-3 text-sm text-red-600">{requestError}</p>}
           <div className="space-y-3">
             {pendingRequests.map((req) => (
               <Card key={req._id}>
@@ -227,12 +264,12 @@ export function AdminSuppliersPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleRequestDecision(req, "REJECTED")}
-                      isLoading={requestActionId === req._id}
+                      onClick={() => openRejectModal(req)}
+                      disabled={requestActionId === req._id}
                     >
                       Reject
                     </Button>
-                    <Button size="sm" onClick={() => handleRequestDecision(req, "APPROVED")} isLoading={requestActionId === req._id}>
+                    <Button size="sm" onClick={() => handleApproveRequest(req)} isLoading={requestActionId === req._id}>
                       Approve
                     </Button>
                   </div>
@@ -358,6 +395,44 @@ export function AdminSuppliersPage() {
           </FieldWrapper>
           {formError && <p className="text-sm text-red-600">{formError}</p>}
         </div>
+      </Modal>
+
+      <Modal
+        open={!!rejectTarget}
+        onClose={() => setRejectTarget(null)}
+        title="Reject supplier request?"
+        description={
+          rejectTarget
+            ? `${requesterNames.get(rejectTarget.user_ref) ?? "The retailer"} will be notified and can request again later.`
+            : ""
+        }
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setRejectTarget(null)} disabled={rejecting}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleRejectRequest} isLoading={rejecting}>
+              Reject request
+            </Button>
+          </>
+        }
+      >
+        <FieldWrapper
+          label="Note to the retailer"
+          htmlFor="reject-note"
+          hint="Optional — shown to the retailer so they know what to change."
+          error={rejectError ?? undefined}
+        >
+          <Textarea
+            id="reject-note"
+            rows={3}
+            maxLength={2000}
+            value={rejectNote}
+            onChange={(e) => setRejectNote(e.target.value)}
+            placeholder="e.g. Please add your commercial registration number to your profile first."
+            hasError={!!rejectError}
+          />
+        </FieldWrapper>
       </Modal>
 
       <Modal

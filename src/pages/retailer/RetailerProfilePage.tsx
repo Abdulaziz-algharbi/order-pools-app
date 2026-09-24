@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useFetch } from "@/hooks/useFetch";
 import { createSupplierRequest, listMyAddresses, listSupplierRequests } from "@/services/api";
@@ -14,7 +15,8 @@ import { formatDate } from "@/lib/utils";
 import { ApiError } from "@/lib/http";
 
 export function RetailerProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const navigate = useNavigate();
   const { data: addresses } = useFetch(() => listMyAddresses(), []);
   // Role-scoped server-side to just this caller's own requests (see
   // supplier.requests.controller.ts) — no filtering needed here.
@@ -24,6 +26,8 @@ export function RetailerProfilePage() {
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [openingPanel, setOpeningPanel] = useState(false);
+  const [panelError, setPanelError] = useState<string | null>(null);
 
   if (!user) return null;
 
@@ -49,6 +53,27 @@ export function RetailerProfilePage() {
       setFormError(e instanceof ApiError ? e.message : "Could not submit request.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Reached only while this session still predates the approval (this
+  // card is hidden once `user` holds SUPPLIER). Re-reading /auth/me both
+  // picks up the new role here and has the backend re-issue the session
+  // cookies with it, so supplier API calls stop being rejected.
+  const handleOpenSupplierPanel = async () => {
+    setOpeningPanel(true);
+    setPanelError(null);
+    try {
+      const me = await refreshUser();
+      if (me.roles.includes("SUPPLIER")) {
+        navigate("/supplier");
+      } else {
+        setPanelError("Supplier access isn't active on your account yet. Please try again shortly.");
+      }
+    } catch (e) {
+      setPanelError(e instanceof ApiError ? e.message : "Could not load supplier access.");
+    } finally {
+      setOpeningPanel(false);
     }
   };
 
@@ -90,6 +115,15 @@ export function RetailerProfilePage() {
                 <Button onClick={() => setRequestOpen(true)}>Request supplier access</Button>
               )}
             </div>
+            {latestRequest?.status === "APPROVED" && (
+              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                <p className="text-slate-600">Your request was approved — you can now sell as a supplier.</p>
+                {panelError && <p className="mt-2 text-red-600">{panelError}</p>}
+                <Button size="sm" className="mt-2" onClick={handleOpenSupplierPanel} isLoading={openingPanel}>
+                  Open supplier panel
+                </Button>
+              </div>
+            )}
             {latestRequest?.status === "REJECTED" && (
               <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
                 {latestRequest.adminComment && (
