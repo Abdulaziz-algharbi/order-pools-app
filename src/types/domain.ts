@@ -35,7 +35,10 @@ export interface AppUser {
   /** Address ids. `GET /users/:_id` (admin-only) returns these populated as `Address[]` instead. */
   addresses: string[];
   profileImage?: string | null;
-  isVerified?: boolean;
+  /** Whether the account's current email address is confirmed. Self-registered
+   *  accounts start `false`; joining a pool, requesting supplier access and
+   *  creating an offer are refused by the backend until it's `true`. */
+  isVerified: boolean;
   status?: UserStatus;
   createdAt: string;
   updatedAt: string;

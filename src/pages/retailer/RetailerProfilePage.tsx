@@ -6,6 +6,7 @@ import { createSupplierRequest, listMyAddresses, listSupplierRequests } from "@/
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ProfileCard } from "@/components/domain/ProfileCard";
 import { ProfileActions } from "@/components/domain/ProfileActions";
+import { EmailVerificationRequired } from "@/components/domain/EmailVerification";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -145,9 +146,16 @@ export function RetailerProfilePage() {
               {latestRequest ? (
                 <StatusBadge status={latestRequest.status} domain="review" />
               ) : (
-                <Button onClick={openRequestForm}>Request supplier access</Button>
+                <Button onClick={openRequestForm} disabled={!user.isVerified}>
+                  Request supplier access
+                </Button>
               )}
             </div>
+            {!user.isVerified && (!latestRequest || latestRequest.status === "REJECTED") && (
+              <div className="mt-3">
+                <EmailVerificationRequired action="request supplier access" />
+              </div>
+            )}
             {latestRequest?.status === "APPROVED" && (
               <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
                 <p className="text-slate-600">Your request was approved — you can now sell as a supplier.</p>
@@ -165,7 +173,7 @@ export function RetailerProfilePage() {
                     {latestRequest.adminComment}
                   </p>
                 )}
-                <Button size="sm" variant="outline" className="mt-2" onClick={openRequestForm}>
+                <Button size="sm" variant="outline" className="mt-2" onClick={openRequestForm} disabled={!user.isVerified}>
                   Request again
                 </Button>
               </div>

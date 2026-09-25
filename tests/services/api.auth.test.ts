@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { request } from "@/lib/http";
-import { fetchCurrentUser, login, logout, register } from "@/services/api";
+import {
+  fetchCurrentUser,
+  login,
+  logout,
+  register,
+  resendVerificationEmail,
+  verifyEmail,
+} from "@/services/api";
 
 vi.mock("@/lib/http", () => ({ request: vi.fn() }));
 
@@ -60,5 +67,24 @@ describe("services/api — auth endpoints", () => {
 
     await expect(fetchCurrentUser()).resolves.toEqual({ _id: "u1" });
     expect(mockedRequest).toHaveBeenCalledWith("/auth/me");
+  });
+
+  it("verifyEmail posts the link's token without the refresh-on-401 behaviour", async () => {
+    mockedRequest.mockResolvedValue({ message: "Email address verified" });
+
+    await verifyEmail("abc123");
+
+    expect(mockedRequest).toHaveBeenCalledWith("/auth/verify-email", {
+      method: "POST",
+      body: { token: "abc123" },
+      auth: false,
+    });
+  });
+
+  it("resendVerificationEmail returns the backend's confirmation message", async () => {
+    mockedRequest.mockResolvedValue({ message: "Verification email sent to a@b.c" });
+
+    await expect(resendVerificationEmail()).resolves.toBe("Verification email sent to a@b.c");
+    expect(mockedRequest).toHaveBeenCalledWith("/auth/resend-verification", { method: "POST" });
   });
 });

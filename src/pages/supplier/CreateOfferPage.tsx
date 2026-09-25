@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import { createOffer } from "@/services/api";
+import { EmailVerificationRequired } from "@/components/domain/EmailVerification";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { FieldWrapper, Input, Select, Textarea } from "@/components/ui/Field";
@@ -31,6 +33,7 @@ const initialState: FormState = {
 
 export function CreateOfferPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [form, setForm] = useState<FormState>(initialState);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
@@ -149,12 +152,13 @@ export function CreateOfferPage() {
             </FieldWrapper>
 
             {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+            {!user?.isVerified && <EmailVerificationRequired action="submit an offer" />}
 
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="outline" onClick={() => navigate("/supplier/offers")} disabled={submitting}>
                 Cancel
               </Button>
-              <Button type="submit" isLoading={submitting}>
+              <Button type="submit" isLoading={submitting} disabled={!user?.isVerified}>
                 Submit offer
               </Button>
             </div>

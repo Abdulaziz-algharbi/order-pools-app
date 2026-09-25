@@ -25,6 +25,7 @@ const retailer: AppUser = {
   companyName: "Said Trading",
   roles: ["RETAILER"],
   addresses: [],
+  isVerified: true,
   createdAt: "2026-09-01T00:00:00.000Z",
   updatedAt: "2026-09-01T00:00:00.000Z",
 };

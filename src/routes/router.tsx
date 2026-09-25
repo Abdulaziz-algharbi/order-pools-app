@@ -3,6 +3,7 @@ import { RootRedirect } from "@/routes/RootRedirect";
 import { ProtectedRoute } from "@/routes/ProtectedRoute";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { SignupPage } from "@/pages/auth/SignupPage";
+import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { NotificationsPage } from "@/pages/shared/NotificationsPage";
 import { PaymentResultPage } from "@/pages/shared/PaymentResultPage";
@@ -44,6 +45,8 @@ export const router = createBrowserRouter([
   { path: "/", element: <RootRedirect /> },
   { path: "/login", element: <LoginPage /> },
   { path: "/signup", element: <SignupPage /> },
+  // Public — opened from the emailed link, possibly signed out or on another device.
+  { path: "/verify-email", element: <VerifyEmailPage /> },
   { path: "/payments/:paymentId/result", element: <PaymentResultPage /> },
 
   {

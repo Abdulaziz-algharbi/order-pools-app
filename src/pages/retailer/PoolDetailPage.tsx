@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import { useFetch } from "@/hooks/useFetch";
 import { createAddress, getPool, joinPool, listMyAddresses } from "@/services/api";
 import { AddressFields, emptyAddressFields } from "@/components/domain/AddressFields";
 import { PoolOverview } from "@/components/domain/PoolOverview";
+import { EmailVerificationRequired } from "@/components/domain/EmailVerification";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { FieldWrapper, Input, Select } from "@/components/ui/Field";
@@ -15,6 +17,7 @@ import type { Address } from "@/types/domain";
 
 export function PoolDetailPage() {
   const { poolId } = useParams<{ poolId: string }>();
+  const { user } = useAuth();
 
   const { data: pool, isLoading, error, refetch } = useFetch(() => getPool(poolId!), [poolId]);
 
@@ -112,9 +115,12 @@ export function PoolDetailPage() {
         </div>
 
         {pool.status === "OPEN" && (
-          <Button size="lg" className="w-full sm:w-auto" onClick={openJoinModal}>
-            Join this pool
-          </Button>
+          <div className="space-y-2">
+            <Button size="lg" className="w-full sm:w-auto" onClick={openJoinModal} disabled={!user?.isVerified}>
+              Join this pool
+            </Button>
+            {!user?.isVerified && <EmailVerificationRequired action="join a pool" />}
+          </div>
         )}
       </PoolOverview>
 

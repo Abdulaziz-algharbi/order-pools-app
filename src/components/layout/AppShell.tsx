@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet, useMatches } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { EmailVerificationBanner } from "@/components/domain/EmailVerification";
 import { CloseIcon } from "@/components/ui/icons";
 import type { Panel } from "@/lib/panel";
 
@@ -53,6 +54,7 @@ export function AppShell({ role }: { role: Panel }) {
           title={title?.title ?? "Order Pool"}
         />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <EmailVerificationBanner />
           <Outlet />
         </main>
       </div>

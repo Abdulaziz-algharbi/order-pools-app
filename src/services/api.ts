@@ -74,6 +74,19 @@ export async function logout(): Promise<void> {
   await request("/auth/logout", { method: "POST" });
 }
 
+// The token from the emailed link. Public on the backend — the link may be
+// opened while signed out, or on another device.
+export async function verifyEmail(token: string): Promise<void> {
+  await request("/auth/verify-email", { method: "POST", body: { token }, auth: false });
+}
+
+// Signed-in only. Rejects with 409 if already verified and 429 during the
+// backend's resend cooldown — both carry a user-readable message.
+export async function resendVerificationEmail(): Promise<string> {
+  const res = await request<{ message: string }>("/auth/resend-verification", { method: "POST" });
+  return res.message;
+}
+
 export async function fetchCurrentUser(): Promise<AppUser> {
   const res = await request<{ user: AppUser }>("/auth/me");
   return res.user;

@@ -30,6 +30,7 @@ const retailer: AppUser = {
   companyName: "Said Trading",
   roles: ["RETAILER"],
   addresses: [],
+  isVerified: true,
   createdAt: "2026-09-01T00:00:00.000Z",
   updatedAt: "2026-09-01T00:00:00.000Z",
 };
@@ -249,5 +250,37 @@ describe("RetailerProfilePage — filing a supplier request", () => {
 
     expect(await within(dialog).findByText("This conflicts with an existing record")).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+});
+
+describe("RetailerProfilePage — unverified email", () => {
+  beforeEach(() => {
+    mockedUseAuth.mockReturnValue({ ...mockedUseAuth(), user: { ...retailer, isVerified: false } });
+  });
+
+  it("disables requesting supplier access and explains why", async () => {
+    mockedApi.listSupplierRequests.mockResolvedValue([]);
+
+    renderPage();
+
+    expect(await screen.findByRole("button", { name: "Request supplier access" })).toBeDisabled();
+    expect(screen.getByText(/Verify your email address to request supplier access/)).toBeInTheDocument();
+  });
+
+  it("disables requesting again after a rejection until verified", async () => {
+    mockedApi.listSupplierRequests.mockResolvedValue([request({ status: "REJECTED" })]);
+
+    renderPage();
+
+    expect(await screen.findByRole("button", { name: "Request again" })).toBeDisabled();
+  });
+
+  it("does not show the notice when there is nothing to request (request pending)", async () => {
+    mockedApi.listSupplierRequests.mockResolvedValue([request({ status: "PENDING" })]);
+
+    renderPage();
+
+    await screen.findByText("Your request to also become a supplier:");
+    expect(screen.queryByText(/Verify your email address to request supplier access/)).not.toBeInTheDocument();
   });
 });
