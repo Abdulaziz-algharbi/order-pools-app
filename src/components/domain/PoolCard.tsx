@@ -3,7 +3,7 @@ import type { Pool } from "@/types/domain";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { formatCurrency, formatDate, formatNumber, poolProgress, daysUntil } from "@/lib/utils";
+import { formatCurrency, formatDate, formatNumber, poolProgress, poolQuantities, daysUntil } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 interface PoolCardProps {
@@ -13,7 +13,7 @@ interface PoolCardProps {
 }
 
 export function PoolCard({ pool, action, className }: PoolCardProps) {
-  const collected = pool.targetQuantity - pool.currentQuantity;
+  const collected = poolQuantities(pool).paid;
   const progress = poolProgress(collected, pool.targetQuantity);
   const daysLeft = daysUntil(pool.endDate);
   const isOpen = pool.status === "OPEN";

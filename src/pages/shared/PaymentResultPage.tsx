@@ -37,6 +37,9 @@ export function PaymentResultPage() {
 
   const isSuccess = payment?.status === "COMPLETED";
   const isPending = payment?.status === "PENDING";
+  // Paid on Thawani after the reservation had already been released
+  // (checkout left open too long, or cancelled) — the backend refunds it.
+  const isLateRefund = payment?.status === "REFUND_PENDING" || payment?.status === "REFUND_FAILED";
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-neutral px-4 py-12">
@@ -50,7 +53,13 @@ export function PaymentResultPage() {
             {isSuccess ? <CheckIcon className="h-6 w-6" /> : <AlertIcon className="h-6 w-6" />}
           </div>
           <h1 className="font-heading text-xl font-semibold text-primary">
-            {isSuccess ? "Payment successful" : isPending ? "Payment pending" : "Payment not completed"}
+            {isSuccess
+              ? "Payment successful"
+              : isPending
+                ? "Payment pending"
+                : isLateRefund
+                  ? "Payment being refunded"
+                  : "Payment not completed"}
           </h1>
           <p className="text-sm text-slate-500">
             {error
@@ -59,7 +68,9 @@ export function PaymentResultPage() {
                 ? `Your contribution of ${formatCurrency(payment.amount)} has been confirmed.`
                 : isPending
                   ? "We're still waiting for confirmation from the payment provider. This can take a moment — check My Joins shortly."
-                  : "This payment was cancelled or could not be completed. No charge was made."}
+                  : isLateRefund && payment
+                    ? `Your payment of ${formatCurrency(payment.amount)} arrived after your reservation in this pool had expired, so you weren't added and it is being refunded.`
+                    : "This payment was cancelled or could not be completed. No charge was made."}
           </p>
           <LinkButton to="/retailer/joins" className="w-full">
             Go to My Joins

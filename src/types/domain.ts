@@ -109,14 +109,17 @@ export interface Pool {
   unit: ProductOfferUnit;
   supplierName?: string | null;
   targetQuantity: number;
+  /** Quantity still open to join — reserved (not necessarily paid) quantity is already taken out. */
   currentQuantity: number;
+  /** Quantity actually paid for. The pool only reaches TARGET_REACHED once this covers targetQuantity. Absent on legacy pools. */
+  paidQuantity?: number;
   minimumContribution: number;
   pricePerUnit: number;
   startDate: string;
   endDate: string;
   status: PoolStatus;
   supplierPaymentStatus: SupplierPaymentStatus;
-  /** Count of participants with a live or completed claim (excludes failed/refunded joins). */
+  /** Count of participants who have paid (excludes unfinished checkouts and failed/refunded joins). */
   participantCount: number;
   createdAt: string;
   updatedAt: string;

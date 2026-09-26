@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
+import type { Pool } from "@/types/domain";
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -58,6 +59,17 @@ export function formatRelativeTime(value: string): string {
 export function daysUntil(value: string): number {
   const diffMs = new Date(value).getTime() - Date.now();
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+}
+
+// How a pool's target splits up. `paid` is what progress shows, so an
+// unfinished checkout never looks like a contribution; `awaitingPayment`
+// is reserved by a join but not yet paid (released by the backend if the
+// checkout is never finished). A legacy pool without paidQuantity falls
+// back to counting every reservation as collected, as before.
+export function poolQuantities(pool: Pick<Pool, "targetQuantity" | "currentQuantity" | "paidQuantity">) {
+  const reserved = pool.targetQuantity - pool.currentQuantity;
+  const paid = pool.paidQuantity ?? reserved;
+  return { paid, awaitingPayment: Math.max(0, reserved - paid) };
 }
 
 export function poolProgress(current: number, target: number): number {

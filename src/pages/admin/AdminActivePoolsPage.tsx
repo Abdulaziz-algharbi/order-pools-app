@@ -6,7 +6,7 @@ import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { formatDate, formatNumber, poolProgress } from "@/lib/utils";
+import { formatDate, formatNumber, poolProgress, poolQuantities } from "@/lib/utils";
 import type { Pool } from "@/types/domain";
 
 export function AdminActivePoolsPage() {
@@ -28,7 +28,7 @@ export function AdminActivePoolsPage() {
       key: "progress",
       header: "Progress",
       render: (p) => {
-        const collected = p.targetQuantity - p.currentQuantity;
+        const collected = poolQuantities(p).paid;
         return (
           <div className="w-36">
             <div className="mb-1 flex justify-between text-xs text-slate-500">

@@ -3,7 +3,7 @@ import type { Pool } from "@/types/domain";
 import { Card, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { daysUntil, formatCurrency, formatDate, formatNumber, poolProgress } from "@/lib/utils";
+import { daysUntil, formatCurrency, formatDate, formatNumber, poolProgress, poolQuantities } from "@/lib/utils";
 
 /** A display-only participant row — the caller resolves whatever identity it can (or none, if it has no read access to who joined). */
 export interface PoolParticipantRow {
@@ -19,7 +19,7 @@ interface PoolOverviewProps {
 }
 
 export function PoolOverview({ pool, participants, children }: PoolOverviewProps) {
-  const collected = pool.targetQuantity - pool.currentQuantity;
+  const { paid: collected, awaitingPayment } = poolQuantities(pool);
   const progress = poolProgress(collected, pool.targetQuantity);
   const daysLeft = daysUntil(pool.endDate);
 
@@ -74,6 +74,8 @@ export function PoolOverview({ pool, participants, children }: PoolOverviewProps
           <ProgressBar value={progress} className="h-3" />
           <p className="mt-2 text-sm text-slate-500">
             {formatNumber(pool.currentQuantity)} {pool.unit.toLowerCase()} still needed
+            {awaitingPayment > 0 &&
+              ` · ${formatNumber(awaitingPayment)} ${pool.unit.toLowerCase()} reserved, awaiting payment`}
             {pool.status === "OPEN" &&
               (daysLeft > 0 ? ` · ${daysLeft} day${daysLeft === 1 ? "" : "s"} left` : " · closing today")}
           </p>
