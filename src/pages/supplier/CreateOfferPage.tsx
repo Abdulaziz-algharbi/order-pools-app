@@ -6,7 +6,8 @@ import { EmailVerificationRequired } from "@/components/domain/EmailVerification
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { FieldWrapper, Input, Select, Textarea } from "@/components/ui/Field";
-import { ApiError } from "@/lib/http";
+import { apiErrorMessage } from "@/lib/http";
+import { OFFER_PRICE_HINT, omrPriceError } from "@/lib/pool-pricing";
 import type { ProductOfferUnit } from "@/types/domain";
 
 const UNITS: ProductOfferUnit[] = ["PIECE", "KG", "BOX", "CARTON"];
@@ -50,8 +51,8 @@ export function CreateOfferPage() {
     if (!form.description.trim()) next.description = "Description is required.";
     const quantity = Number(form.wholeQuantity);
     if (!quantity || quantity <= 0) next.wholeQuantity = "Enter a quantity greater than 0.";
-    const price = Number(form.price);
-    if (!price || price <= 0) next.price = "Enter a price greater than 0.";
+    const priceError = omrPriceError(form.price);
+    if (priceError) next.price = priceError;
 
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -75,7 +76,7 @@ export function CreateOfferPage() {
       });
       navigate("/supplier/offers");
     } catch (err) {
-      setSubmitError(err instanceof ApiError ? err.message : "Could not submit offer.");
+      setSubmitError(apiErrorMessage(err, "Could not submit offer."));
     } finally {
       setSubmitting(false);
     }
@@ -139,12 +140,18 @@ export function CreateOfferPage() {
               </FieldWrapper>
             </div>
 
-            <FieldWrapper label="Price per unit (OMR)" htmlFor="price" error={errors.price} required>
+            <FieldWrapper
+              label="Price per unit (OMR)"
+              htmlFor="price"
+              error={errors.price}
+              hint={OFFER_PRICE_HINT}
+              required
+            >
               <Input
                 id="price"
                 type="number"
-                min={0.01}
-                step="0.01"
+                min={0.001}
+                step="0.001"
                 value={form.price}
                 onChange={update("price")}
                 hasError={!!errors.price}

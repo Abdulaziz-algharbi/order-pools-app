@@ -12,7 +12,8 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Spinner";
 import { ListIcon } from "@/components/ui/icons";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
-import { ApiError } from "@/lib/http";
+import { apiErrorMessage } from "@/lib/http";
+import { checkPoolPricing } from "@/lib/pool-pricing";
 import type { ProductOffer, ProductOfferStatus } from "@/types/domain";
 
 type OfferDecision = Extract<ProductOfferStatus, "APPROVED" | "NEGOTIATION" | "REJECTED">;
@@ -38,6 +39,9 @@ export function AdminOffersPage() {
   const [decision, setDecision] = useState<OfferDecision | null>(null);
   const [note, setNote] = useState("");
   const [poolForm, setPoolForm] = useState({ minimumContribution: "", pricePerUnit: "", endDate: "" });
+  // Live check of the pool's price terms against the payment provider's
+  // 0.100 OMR minimum, so the admin sees it while typing.
+  const pricing = checkPoolPricing(poolForm.pricePerUnit, poolForm.minimumContribution);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -77,6 +81,15 @@ export function AdminOffersPage() {
         setFormError("Enter a price per unit greater than 0.");
         return;
       }
+      // Mirrors the backend's pool rules (pool.schema.ts) so a bad pool is
+      // caught before the offer is approved — the offer review and the
+      // pool creation below are two separate requests. The same check is
+      // shown live under the fields (pricing below).
+      const pricingError = checkPoolPricing(poolForm.pricePerUnit, poolForm.minimumContribution).error;
+      if (pricingError) {
+        setFormError(pricingError);
+        return;
+      }
       if (!poolForm.endDate || new Date(poolForm.endDate).getTime() <= Date.now()) {
         setFormError("Pool deadline must be in the future.");
         return;
@@ -100,7 +113,7 @@ export function AdminOffersPage() {
       close();
       refetch();
     } catch (e) {
-      setFormError(e instanceof ApiError ? e.message : "Could not process this decision.");
+      setFormError(apiErrorMessage(e, "Could not process this decision."));
     } finally {
       setSubmitting(false);
     }
@@ -214,23 +227,36 @@ export function AdminOffersPage() {
           {decision === "APPROVED" && activeOffer && (
             <>
               <div className="grid grid-cols-2 gap-4">
-                <FieldWrapper label="Minimum contribution" htmlFor="minimumContribution" required>
+                <FieldWrapper
+                  label="Minimum contribution"
+                  htmlFor="minimumContribution"
+                  required
+                  error={pricing.field === "minimumContribution" ? pricing.error : undefined}
+                  hint={pricing.field ? undefined : pricing.hint}
+                >
                   <Input
                     id="minimumContribution"
                     type="number"
                     min={1}
                     max={activeOffer.wholeQuantity}
                     value={poolForm.minimumContribution}
+                    hasError={pricing.field === "minimumContribution"}
                     onChange={(e) => setPoolForm((f) => ({ ...f, minimumContribution: e.target.value }))}
                   />
                 </FieldWrapper>
-                <FieldWrapper label="Price per unit (OMR)" htmlFor="pricePerUnit" required>
+                <FieldWrapper
+                  label="Price per unit (OMR)"
+                  htmlFor="pricePerUnit"
+                  required
+                  error={pricing.field === "pricePerUnit" ? pricing.error : undefined}
+                >
                   <Input
                     id="pricePerUnit"
                     type="number"
-                    min={0.01}
-                    step="0.01"
+                    min={0.001}
+                    step="0.001"
                     value={poolForm.pricePerUnit}
+                    hasError={pricing.field === "pricePerUnit"}
                     onChange={(e) => setPoolForm((f) => ({ ...f, pricePerUnit: e.target.value }))}
                   />
                 </FieldWrapper>

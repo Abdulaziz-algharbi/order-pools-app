@@ -1,7 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { ApiError, request } from "@/lib/http";
+import { ApiError, apiErrorMessage, request } from "@/lib/http";
 
 const API = "http://api.test/api/v1";
 
@@ -277,5 +277,26 @@ describe("request() — silent refresh on 401", () => {
 
     expect(error).toMatchObject({ status: 403, message: "Forbidden" });
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("apiErrorMessage", () => {
+  it("surfaces the backend's field-level validation messages instead of a bare 'Validation Error'", () => {
+    const error = new ApiError("Validation Error", 400, {
+      minimumContribution: ["minimumContribution must be at least 100"],
+      _root: ["At least one field must be provided"],
+    });
+
+    expect(apiErrorMessage(error, "fallback")).toBe(
+      "minimumContribution must be at least 100 At least one field must be provided",
+    );
+  });
+
+  it("uses the API's own message when there are no field errors", () => {
+    expect(apiErrorMessage(new ApiError("Pool not found", 404), "fallback")).toBe("Pool not found");
+  });
+
+  it("uses the fallback for anything that isn't an API error", () => {
+    expect(apiErrorMessage(new TypeError("network"), "fallback")).toBe("fallback");
   });
 });

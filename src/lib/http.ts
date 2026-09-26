@@ -37,6 +37,23 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The message to show for a failed request. A backend validation failure
+ * comes back as a bare "Validation Error" with the specifics in `errors`
+ * (`{ field: [messages], _root?: [messages] }`), so those are surfaced
+ * instead of the generic text.
+ */
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof ApiError)) return fallback;
+  if (error.errors && typeof error.errors === "object") {
+    const details = Object.values(error.errors as Record<string, unknown>)
+      .flatMap((messages) => (Array.isArray(messages) ? messages : []))
+      .filter((m): m is string => typeof m === "string");
+    if (details.length > 0) return details.join(" ");
+  }
+  return error.message;
+}
+
 const client = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
