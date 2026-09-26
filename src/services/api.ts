@@ -428,6 +428,30 @@ export async function reviewOffer(
   return res.data;
 }
 
+export interface ApproveOfferInput {
+  minimumContribution: number;
+  pricePerUnit: number;
+  startDate?: string;
+  endDate: string;
+  adminComment?: string;
+}
+
+// Approves the offer and creates its pool in one backend transaction —
+// either both happen or neither does. (reviewOffer can't approve: a
+// PATCH to APPROVED is refused, since a failed pool step afterwards used
+// to leave an approved offer with no pool.) The pool's quantity is the
+// offer's wholeQuantity, set server-side.
+export async function approveOffer(
+  id: string,
+  input: ApproveOfferInput,
+): Promise<{ offer: ProductOffer; pool: Pool }> {
+  const res = await request<Envelope<{ offer: ProductOffer; pool: Pool }>>(`/offers/${id}/approve`, {
+    method: "POST",
+    body: input,
+  });
+  return res.data;
+}
+
 export async function deleteOffer(id: string): Promise<void> {
   await request(`/offers/${id}`, { method: "DELETE" });
 }

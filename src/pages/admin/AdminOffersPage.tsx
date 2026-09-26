@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useFetch } from "@/hooks/useFetch";
-import { createPool, getUserById, listOffers, reviewOffer } from "@/services/api";
+import { approveOffer, getUserById, listOffers, reviewOffer } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -81,10 +81,9 @@ export function AdminOffersPage() {
         setFormError("Enter a price per unit greater than 0.");
         return;
       }
-      // Mirrors the backend's pool rules (pool.schema.ts) so a bad pool is
-      // caught before the offer is approved — the offer review and the
-      // pool creation below are two separate requests. The same check is
-      // shown live under the fields (pricing below).
+      // Mirrors the backend's pool rules (pool.schema.ts) — the same check
+      // shown live under the fields (pricing below), so the admin hears
+      // about it before submitting rather than from the server.
       const pricingError = checkPoolPricing(poolForm.pricePerUnit, poolForm.minimumContribution).error;
       if (pricingError) {
         setFormError(pricingError);
@@ -100,15 +99,17 @@ export function AdminOffersPage() {
     setFormError(null);
     setSubmitting(true);
     try {
-      await reviewOffer(activeOffer._id, { status: decision, adminComment: note.trim() || undefined });
+      const adminComment = note.trim() || undefined;
       if (decision === "APPROVED") {
-        await createPool({
-          productoffer_ref: activeOffer._id,
-          currentQuantity: activeOffer.wholeQuantity,
+        // One request: the offer is approved only if its pool is created.
+        await approveOffer(activeOffer._id, {
           minimumContribution: Number(poolForm.minimumContribution),
           pricePerUnit: Number(poolForm.pricePerUnit),
           endDate: endDateIso,
+          adminComment,
         });
+      } else {
+        await reviewOffer(activeOffer._id, { status: decision, adminComment });
       }
       close();
       refetch();
