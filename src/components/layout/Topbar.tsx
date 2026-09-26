@@ -4,9 +4,17 @@ import { useAuth } from "@/context/AuthContext";
 import { useNotifications } from "@/hooks/useNotifications";
 import { NotificationItem } from "@/components/domain/NotificationItem";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { BellIcon, ChevronDownIcon, LogOutIcon, MenuIcon, UserIcon } from "@/components/ui/icons";
+import {
+  BellIcon,
+  ChevronDownIcon,
+  LayersIcon,
+  LogOutIcon,
+  MenuIcon,
+  UserIcon,
+} from "@/components/ui/icons";
 import type { AppNotification } from "@/types/domain";
 import type { Panel } from "@/lib/panel";
+import { PANEL_LABEL, panelsFor } from "@/lib/panel";
 import { cn } from "@/lib/utils";
 
 const NOTIFICATIONS_PAGE: Partial<Record<Panel, string>> = {
@@ -45,6 +53,8 @@ export function Topbar({
   const { notifications, unreadCount, markRead, markAllRead, isReadForUser } = useNotifications(
     user?._id,
   );
+
+  const otherPanels = user ? panelsFor(user).filter((p) => p !== role) : [];
 
   const displayName = user
     ? user.companyName || `${user.firstName} ${user.lastName}`
@@ -159,6 +169,19 @@ export function Topbar({
               >
                 <UserIcon className="h-4 w-4" /> Profile
               </button>
+              {otherPanels.map((panel) => (
+                <button
+                  key={panel}
+                  type="button"
+                  onClick={() => {
+                    navigate(`/${panel}`);
+                    setProfileOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-primary hover:bg-slate-50"
+                >
+                  <LayersIcon className="h-4 w-4" /> Switch to {PANEL_LABEL[panel]}
+                </button>
+              ))}
               <button
                 type="button"
                 onClick={logout}

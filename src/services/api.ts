@@ -11,6 +11,7 @@
  * sends (see order-pools-backend docs), not a single assumed shape.
  */
 import { request } from "@/lib/http";
+import { activePanel, panelToRole } from "@/lib/panel";
 import type {
   Address,
   AppNotification,
@@ -33,6 +34,16 @@ import type {
   SupplierRemoveRequest,
   SupplierRequest,
 } from "@/types/domain";
+
+// `?as=<role>` for the endpoints whose visibility is the union of every
+// role the caller holds (pools, deliveries, notifications): a RETAILER +
+// SUPPLIER account browsing the supplier panel should only see its supplier
+// side. Derived from the current URL, so every caller gets it for free.
+// The backend only lets `as` narrow to a role the caller already holds.
+function panelScope(): { as?: string } {
+  const panel = activePanel();
+  return panel ? { as: panelToRole(panel) } : {};
+}
 
 interface Envelope<T> {
   message: string;
@@ -180,7 +191,7 @@ export interface PoolFilter {
 // server-side, but status filtering within what's visible is left to the
 // caller) — filtered client-side over whatever the caller is allowed to see.
 export async function listPools(filter?: PoolFilter): Promise<Pool[]> {
-  const res = await request<Envelope<Pool[]>>("/pools");
+  const res = await request<Envelope<Pool[]>>("/pools", { query: panelScope() });
   const pools = [...res.data].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
@@ -190,7 +201,7 @@ export async function listPools(filter?: PoolFilter): Promise<Pool[]> {
 }
 
 export async function getPool(id: string): Promise<Pool> {
-  const res = await request<Envelope<Pool>>(`/pools/${id}`);
+  const res = await request<Envelope<Pool>>(`/pools/${id}`, { query: panelScope() });
   return res.data;
 }
 
@@ -330,7 +341,7 @@ export async function confirmRefund(id: string): Promise<Payment> {
 // ---------------------------------------------------------------------------
 
 export async function listDeliveries(): Promise<Delivery[]> {
-  const res = await request<Envelope<Delivery[]>>("/deliveries");
+  const res = await request<Envelope<Delivery[]>>("/deliveries", { query: panelScope() });
   return res.data;
 }
 
@@ -471,9 +482,12 @@ export async function respondToComplaint(
 
 // Always scoped to the caller by the backend — there's no userId param to
 // pass; a non-admin's `recipients[]` also comes back redacted to just
-// their own entry.
+// their own entry. Also scoped to the current panel (panelScope): each
+// panel shows its own notifications plus panel-agnostic ones.
 export async function listNotifications(): Promise<AppNotification[]> {
-  const res = await request<Envelope<AppNotification[]>>("/notifications");
+  const res = await request<Envelope<AppNotification[]>>("/notifications", {
+    query: panelScope(),
+  });
   return [...res.data].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );

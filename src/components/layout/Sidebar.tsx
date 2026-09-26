@@ -2,12 +2,8 @@ import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/config/nav";
 import type { Panel } from "@/lib/panel";
-
-const ROLE_LABEL: Record<Panel, string> = {
-  retailer: "Retailer",
-  supplier: "Supplier",
-  admin: "Administrator",
-};
+import { PANEL_LABEL } from "@/lib/panel";
+import { PanelSwitcher } from "@/components/layout/PanelSwitcher";
 
 interface SidebarProps {
   role: Panel;
@@ -25,8 +21,12 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
         </div>
         <div>
           <p className="font-heading text-sm font-semibold text-white">Order Pool</p>
-          <p className="text-xs text-slate-400">{ROLE_LABEL[role]}</p>
+          <p className="text-xs text-slate-400">{PANEL_LABEL[role]}</p>
         </div>
+      </div>
+
+      <div className="px-3">
+        <PanelSwitcher current={role} onSwitch={onNavigate} />
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
