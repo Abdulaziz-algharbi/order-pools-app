@@ -63,7 +63,9 @@ const LABELS: Record<string, string> = {
   DELIVERED: "Delivered",
 
   PENDING_PAYMENT: "Payment Pending",
-  WAITING: "Waiting",
+  // Paid — the participant is waiting on the pool to fill and deliver,
+  // not on payment (that is PENDING_PAYMENT).
+  WAITING: "Paid · awaiting delivery",
   PAYMENT_FAILED: "Payment Failed",
   REFUNDED: "Refunded",
 
