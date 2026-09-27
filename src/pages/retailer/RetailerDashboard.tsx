@@ -25,7 +25,7 @@ export function RetailerDashboard() {
   } = useFetch(() => listPools({ status: "OPEN" }), []);
   const { notifications, unreadCount, isReadForUser } = useNotifications(user?._id);
 
-  const activeJoinCount = participants?.length ?? 0;
+  const activeJoinCount = (participants ?? []).filter((p) => p.status !== "WITHDRAWN").length;
   const closingSoon = (pools ?? [])
     .filter((p) => poolProgress(p.targetQuantity - p.currentQuantity, p.targetQuantity) >= 60)
     .slice(0, 3);

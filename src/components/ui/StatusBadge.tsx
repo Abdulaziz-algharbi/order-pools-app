@@ -30,6 +30,7 @@ const STYLES: Record<string, string> = {
   PENDING_PAYMENT: "bg-amber-50 text-amber-700 ring-amber-600/20",
   WAITING: "bg-tertiary/10 text-tertiary ring-tertiary/20",
   PAYMENT_FAILED: "bg-red-50 text-red-700 ring-red-600/20",
+  WITHDRAWN: "bg-slate-100 text-slate-700 ring-slate-500/20",
   REFUNDED: "bg-slate-100 text-slate-700 ring-slate-500/20",
 
   // SupplierPayout only — PENDING/COMPLETED above already cover its other
@@ -42,6 +43,13 @@ const STYLES: Record<string, string> = {
   REFUND_FAILED: "bg-red-50 text-red-700 ring-red-600/20",
 
   "complaint:OPEN": "bg-amber-50 text-amber-700 ring-amber-600/20",
+
+  // A retailer's join once its refund is under way (see joinBadgeStatus).
+  "participant:REFUND_PENDING": "bg-amber-50 text-amber-700 ring-amber-600/20",
+  "participant:REFUND_FAILED": "bg-amber-50 text-amber-700 ring-amber-600/20",
+  "participant:WITHDRAWN_REFUND_PENDING": "bg-amber-50 text-amber-700 ring-amber-600/20",
+  "participant:WITHDRAWN_REFUNDED": "bg-slate-100 text-slate-700 ring-slate-500/20",
+  "participant:WITHDRAWN_REFUND_FAILED": "bg-amber-50 text-amber-700 ring-amber-600/20",
 };
 
 const LABELS: Record<string, string> = {
@@ -67,6 +75,7 @@ const LABELS: Record<string, string> = {
   // not on payment (that is PENDING_PAYMENT).
   WAITING: "Paid · awaiting delivery",
   PAYMENT_FAILED: "Payment Failed",
+  WITHDRAWN: "Withdrawn",
   REFUNDED: "Refunded",
 
   PROCESSING: "Processing",
@@ -76,6 +85,13 @@ const LABELS: Record<string, string> = {
   REFUND_FAILED: "Refund Failed",
 
   "complaint:OPEN": "Open",
+
+  // A failed refund request is retried by an admin — to the retailer it's
+  // only delayed, not failed.
+  "participant:REFUND_FAILED": "Refund delayed",
+  "participant:WITHDRAWN_REFUND_PENDING": "Withdrawn · Refund pending",
+  "participant:WITHDRAWN_REFUNDED": "Withdrawn · Refunded",
+  "participant:WITHDRAWN_REFUND_FAILED": "Withdrawn · Refund delayed",
 };
 
 const FALLBACK_STYLE = "bg-slate-100 text-slate-700 ring-slate-500/20";

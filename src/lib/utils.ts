@@ -1,5 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
-import type { Pool } from "@/types/domain";
+import type { Payment, Pool, PoolParticipant } from "@/types/domain";
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -88,4 +88,47 @@ export function canWithdrawFromPool(pool: { status: string; updatedAt: string })
   if (pool.status === "OPEN" || pool.status === "COMPLETED") return true;
   if (pool.status !== "CANCELLED") return false;
   return Date.now() - new Date(pool.updatedAt).getTime() >= SEVEN_DAYS_MS;
+}
+
+// Still holding quantity in the pool — on an OPEN pool only these can
+// leave. Anything else (withdrawn, failed) already has, and the backend
+// would delete the record itself instead of withdrawing it.
+const ACTIVE_JOIN_STATUSES: PoolParticipant["status"][] = ["PENDING_PAYMENT", "WAITING"];
+
+export function canLeaveJoin(
+  participant: Pick<PoolParticipant, "status">,
+  pool: { status: string; updatedAt: string },
+): boolean {
+  if (pool.status === "OPEN") return ACTIVE_JOIN_STATUSES.includes(participant.status);
+  return canWithdrawFromPool(pool);
+}
+
+const REFUND_STATUSES: Payment["status"][] = ["REFUND_PENDING", "REFUNDED", "REFUND_FAILED"];
+
+// The status a retailer's join is shown with. The participant's own status
+// says what happened to the join (e.g. WITHDRAWN, kept as history), but the
+// refund's progress lives on its Payment — so once a refund is under way
+// the badge follows the payment, keeping "Withdrawn" in front when that's
+// why. Keys are StatusBadge's "participant:" labels.
+export function joinBadgeStatus(
+  participant: Pick<PoolParticipant, "status">,
+  payment?: Pick<Payment, "status">,
+): string {
+  if (!payment || !REFUND_STATUSES.includes(payment.status)) return participant.status;
+  return participant.status === "WITHDRAWN" ? `WITHDRAWN_${payment.status}` : payment.status;
+}
+
+// Mirrors the backend's PAID_PARTICIPANT_STATUSES: a retailer who paid and
+// is part of the pool's order (and its delivery).
+const PAID_JOIN_STATUSES: PoolParticipant["status"][] = ["WAITING", "DELIVERED"];
+
+// Whether a pool belongs on the retailer's delivery-tracking page: they
+// paid into it — or it was cancelled while they were in it and they were
+// refunded. A withdrawn or failed join isn't part of the order.
+export function tracksPoolDelivery(
+  participant: Pick<PoolParticipant, "status">,
+  pool: Pick<Pool, "status">,
+): boolean {
+  if (PAID_JOIN_STATUSES.includes(participant.status)) return true;
+  return pool.status === "CANCELLED" && participant.status === "REFUNDED";
 }

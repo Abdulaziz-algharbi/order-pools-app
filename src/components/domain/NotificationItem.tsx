@@ -5,6 +5,7 @@ const ICONS: Record<AppNotification["type"], string> = {
   DELIVERY_ASSIGNED: "🚚",
   PAYMENT_COMPLETED: "✅",
   PAYMENT_FAILED: "⚠️",
+  PAYMENT_REFUND_REQUESTED: "⏳",
   PAYMENT_REFUNDED: "↩️",
   SUPPLIER_REQUEST_CREATED: "📝",
   SUPPLIER_REQUEST_APPROVED: "🎉",

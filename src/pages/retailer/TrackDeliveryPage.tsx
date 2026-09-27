@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Spinner";
 import { TruckIcon, CheckIcon } from "@/components/ui/icons";
-import { formatDateTime, formatNumber } from "@/lib/utils";
+import { formatDateTime, formatNumber, tracksPoolDelivery } from "@/lib/utils";
 import type { Pool } from "@/types/domain";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +33,7 @@ export function TrackDeliveryPage() {
   const trackablePools = (pools ?? []).filter(
     (p) =>
       ["TARGET_REACHED", "DISTRIBUTING", "COMPLETED", "CANCELLED"].includes(p.status) &&
-      (participants ?? []).some((part) => part.pool_ref === p._id),
+      (participants ?? []).some((part) => part.pool_ref === p._id && tracksPoolDelivery(part, p)),
   );
 
   return (

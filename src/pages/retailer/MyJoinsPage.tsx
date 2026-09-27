@@ -10,7 +10,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { LinkButton } from "@/components/ui/LinkButton";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { canWithdrawFromPool, formatCurrency, formatDate, formatNumber, poolProgress } from "@/lib/utils";
+import { canLeaveJoin, joinBadgeStatus, formatCurrency, formatDate, formatNumber, poolProgress } from "@/lib/utils";
 import type { Payment, Pool, PoolParticipant } from "@/types/domain";
 
 interface JoinRow {
@@ -106,7 +106,11 @@ export function MyJoinsPage() {
         </div>
       ),
     },
-    { key: "status", header: "Status", render: (r) => <StatusBadge status={r.participant.status} domain="participant" /> },
+    {
+      key: "status",
+      header: "Status",
+      render: (r) => <StatusBadge status={joinBadgeStatus(r.participant, r.payment)} domain="participant" />,
+    },
     { key: "joined", header: "Joined", render: (r) => formatDate(r.participant.createdAt) },
     {
       key: "actions",
@@ -141,7 +145,7 @@ export function MyJoinsPage() {
             </div>
           );
         }
-        if (canWithdrawFromPool(r.pool)) {
+        if (canLeaveJoin(r.participant, r.pool)) {
           return (
             <Button
               size="sm"
