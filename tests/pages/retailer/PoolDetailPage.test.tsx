@@ -23,6 +23,7 @@ const openPool: Pool = {
   productoffer_ref: "offer-1",
   productName: "Basmati Rice 25kg",
   productDescription: "Premium long grain",
+  productImages: [],
   unit: "BOX",
   supplierName: "Gulf Foods",
   targetQuantity: 100,

@@ -12,7 +12,10 @@ export default mergeConfig(
       // app. from different subdomains, and axios only attaches the
       // X-XSRF-TOKEN header cross-origin when withXSRFToken is set, so
       // the tests exercise that exact path rather than a same-origin one.
-      env: { VITE_API_BASE_URL: "http://api.test/api/v1" },
+      env: {
+        VITE_API_BASE_URL: "http://api.test/api/v1",
+        VITE_CLOUDINARY_CLOUD_NAME: "test-cloud",
+      },
       restoreMocks: true,
     },
   }),

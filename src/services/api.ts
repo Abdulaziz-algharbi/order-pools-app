@@ -11,6 +11,7 @@
  * sends (see order-pools-backend docs), not a single assumed shape.
  */
 import { request } from "@/lib/http";
+import { type SignedUpload, type UploadOptions, uploadToCloudinary } from "@/lib/cloudinary";
 import { activePanel, panelToRole } from "@/lib/panel";
 import type {
   Address,
@@ -33,6 +34,7 @@ import type {
   SupplierPayoutStatus,
   SupplierRemoveRequest,
   SupplierRequest,
+  UploadedImage,
 } from "@/types/domain";
 
 // `?as=<role>` for the endpoints whose visibility is the union of every
@@ -111,6 +113,8 @@ export interface UpdateProfileInput {
   password?: string;
   commercialRegistration?: string | null;
   vatNumber?: string | null;
+  /** A new upload (`uploadImage(file, "profile")`), or null to remove the current one. */
+  profileImage?: UploadedImage | null;
 }
 
 // Self-service only — never roles or email (see auth.schema.ts
@@ -394,7 +398,8 @@ export interface CreateOfferInput {
   description: string;
   brand?: string | null;
   unit?: ProductOfferUnit;
-  images?: string | null;
+  /** Uploads from `uploadImage(file, "offer")`, in order — the first is the cover. */
+  images?: UploadedImage[];
   wholeQuantity: number;
   price: number;
 }
@@ -408,7 +413,8 @@ export interface UpdateOwnOfferInput {
   description?: string;
   brand?: string | null;
   unit?: ProductOfferUnit;
-  images?: string | null;
+  /** The whole list, in order; replaces the stored one. */
+  images?: UploadedImage[];
   wholeQuantity?: number;
   price?: number;
 }
@@ -677,3 +683,35 @@ export async function recordPayout(
   });
   return res.data;
 }
+
+// ---------------------------------------------------------------------------
+// Images
+// ---------------------------------------------------------------------------
+
+/** What an image is for — the backend signs each into its own folder. */
+export type ImagePurpose = "offer" | "profile";
+
+const SIGNATURE_PATHS: Record<ImagePurpose, string> = {
+  offer: "/uploads/offer-image/signature",
+  profile: "/uploads/profile-image/signature",
+};
+
+export async function getUploadSignature(purpose: ImagePurpose): Promise<SignedUpload> {
+  return request<SignedUpload>(SIGNATURE_PATHS[purpose], { method: "POST" });
+}
+
+/**
+ * Uploads one image file straight to Cloudinary (signed by the backend
+ * for the signed-in user) and returns it ready to attach: pass the result
+ * in an offer's `images` or as `profileImage`. Nothing is saved on our
+ * side until that offer or profile is.
+ */
+export async function uploadImage(
+  file: File,
+  purpose: ImagePurpose,
+  options?: UploadOptions,
+): Promise<UploadedImage> {
+  const signed = await getUploadSignature(purpose);
+  return uploadToCloudinary(signed, file, options);
+}
+

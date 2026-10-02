@@ -17,7 +17,6 @@ interface FormState {
   description: string;
   brand: string;
   unit: ProductOfferUnit;
-  images: string;
   wholeQuantity: string;
   price: string;
 }
@@ -27,7 +26,6 @@ const initialState: FormState = {
   description: "",
   brand: "",
   unit: "PIECE",
-  images: "",
   wholeQuantity: "",
   price: "",
 };
@@ -70,7 +68,6 @@ export function CreateOfferPage() {
         description: form.description.trim(),
         brand: form.brand.trim() || undefined,
         unit: form.unit,
-        images: form.images.trim() || undefined,
         wholeQuantity: Number(form.wholeQuantity),
         price: Number(form.price),
       });
@@ -112,10 +109,6 @@ export function CreateOfferPage() {
                 onChange={update("description")}
                 hasError={!!errors.description}
               />
-            </FieldWrapper>
-
-            <FieldWrapper label="Image URL" htmlFor="images" hint="Optional">
-              <Input id="images" value={form.images} onChange={update("images")} placeholder="https://…" />
             </FieldWrapper>
 
             <div className="grid grid-cols-2 gap-4">

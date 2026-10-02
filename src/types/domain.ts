@@ -18,6 +18,30 @@ export type UserRole = "RETAILER" | "SUPPLIER" | "ADMIN";
 export type UserStatus = "ACTIVE" | "SUSPENDED" | "PENDING";
 
 /**
+ * An image hosted on Cloudinary, as the backend stores and returns it
+ * (order-pools-backend `src/db/image-ref.schema.ts`). Build a URL for it
+ * with `cldUrl()` (`src/lib/cloudinary.ts`) — the stored reference has no
+ * URL of its own, so any size can be requested.
+ */
+export interface ImageRef {
+  publicId: string;
+  /** Changes when an image is re-uploaded, so the CDN never serves a stale copy. */
+  version: number;
+  width?: number;
+  height?: number;
+}
+
+/**
+ * A just-finished upload, as Cloudinary returned it. The `signature` is
+ * Cloudinary's proof the upload is genuine; the backend checks it once
+ * when the image is first saved, then drops it. Send these (not plain
+ * `ImageRef`s) wherever a new image is being attached.
+ */
+export interface UploadedImage extends ImageRef {
+  signature: string;
+}
+
+/**
  * A single flat shape for every account — the backend's `User` model has
  * no role-specific fields (no separate "business name" vs "company name",
  * no per-role verification flag), so there's nothing to discriminate on.
@@ -34,7 +58,8 @@ export interface AppUser {
   vatNumber?: string | null;
   /** Address ids. `GET /users/:_id` (admin-only) returns these populated as `Address[]` instead. */
   addresses: string[];
-  profileImage?: string | null;
+  /** Set or removed only by the user themselves (`PATCH /auth/me`). */
+  profileImage?: ImageRef | null;
   /** Whether the account's current email address is confirmed. Self-registered
    *  accounts start `false`; joining a pool, requesting supplier access and
    *  creating an offer are refused by the backend until it's `true`. */
@@ -71,7 +96,8 @@ export interface ProductOffer {
   description: string;
   brand?: string | null;
   unit: ProductOfferUnit;
-  images?: string | null;
+  /** Up to 10, in order — the first is the cover. */
+  images: ImageRef[];
   wholeQuantity: number;
   price: number;
   status: ProductOfferStatus;
@@ -92,7 +118,7 @@ export type SupplierPaymentStatus = "NOT_PAID" | "PAID";
 /**
  * A pool is only ever created (by an admin) from an APPROVED
  * `ProductOffer`. Its display fields (`productName`, `productDescription`,
- * `productImageUrl`, `unit`, `supplierName`) are snapshotted from that
+ * `productImages`, `unit`, `supplierName`) are snapshotted from that
  * offer at creation time — a retailer has no read access to `ProductOffer`
  * itself, so this is the only place that data reaches them.
  *
@@ -105,7 +131,8 @@ export interface Pool {
   productoffer_ref: string;
   productName: string;
   productDescription: string;
-  productImageUrl?: string | null;
+  /** Copied from the offer on approval, in order — the first is the cover. */
+  productImages: ImageRef[];
   unit: ProductOfferUnit;
   supplierName?: string | null;
   targetQuantity: number;
