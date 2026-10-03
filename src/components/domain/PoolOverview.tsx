@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Pool } from "@/types/domain";
+import { ImageGallery } from "@/components/domain/ImageGallery";
 import { Card, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -37,6 +38,9 @@ export function PoolOverview({ pool, participants, children }: PoolOverviewProps
           </div>
           <StatusBadge status={pool.status} domain="pool" />
         </div>
+
+        {/* Every image of the product, the cover first. */}
+        {pool.productImages?.length > 0 && <ImageGallery images={pool.productImages} name={pool.productName} />}
 
         <p className="text-slate-600">{pool.productDescription}</p>
 

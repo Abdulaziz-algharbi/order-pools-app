@@ -73,3 +73,22 @@ describe("PoolDetailPage — email verification gate", () => {
     expect(screen.getByText(/Verify your email address to join a pool/)).toBeInTheDocument();
   });
 });
+
+describe("PoolDetailPage — product images", () => {
+  it("shows all of the pool's images to a retailer", async () => {
+    mockedUseAuth.mockReturnValue(authValue(makeUser({ isVerified: true })));
+    mockedApi.getPool.mockResolvedValue({
+      ...openPool,
+      productImages: [
+        { publicId: "orderpools/dev/offers/s1/cover", version: 1 },
+        { publicId: "orderpools/dev/offers/s1/side", version: 1 },
+      ],
+    });
+
+    renderPage();
+
+    expect(await screen.findByAltText("Basmati Rice 25kg, image 1 of 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show image 2 of 2" })).toBeInTheDocument();
+  });
+});
+
