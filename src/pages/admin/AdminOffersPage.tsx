@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useFetch } from "@/hooks/useFetch";
 import { approveOffer, getUserById, listOffers, reviewOffer } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { ImageGallery } from "@/components/domain/ImageGallery";
 import { Card, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
@@ -12,6 +13,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Spinner";
 import { ListIcon } from "@/components/ui/icons";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { cldUrl } from "@/lib/cloudinary";
 import { apiErrorMessage } from "@/lib/http";
 import { checkPoolPricing } from "@/lib/pool-pricing";
 import type { ProductOffer, ProductOfferStatus } from "@/types/domain";
@@ -167,6 +169,28 @@ export function AdminOffersPage() {
                   <StatusBadge status={o.status} domain="offer" />
                 </div>
                 <p className="text-sm text-slate-600">{o.description}</p>
+                {/* Small previews here; the decision dialog shows them full size. */}
+                {o.images?.length > 0 ? (
+                  <ul className="flex gap-2 overflow-x-auto pb-1" aria-label={`${o.name} images`}>
+                    {o.images.map((image, i) => (
+                      <li key={image.publicId} className="relative shrink-0">
+                        <img
+                          src={cldUrl(image, "thumb")}
+                          alt={`${o.name}, image ${i + 1} of ${o.images.length}`}
+                          loading="lazy"
+                          className="h-16 w-16 rounded-lg object-cover"
+                        />
+                        {i === 0 && (
+                          <span className="absolute bottom-1 left-1 rounded bg-primary/80 px-1 text-[10px] font-medium text-white">
+                            Cover
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-slate-400">No images</p>
+                )}
                 <dl className="grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3 text-sm sm:grid-cols-3">
                   <div>
                     <dt className="text-xs text-slate-400">Quantity</dt>
@@ -225,6 +249,9 @@ export function AdminOffersPage() {
         }
       >
         <div className="space-y-4">
+          {activeOffer && activeOffer.images?.length > 0 && (
+            <ImageGallery images={activeOffer.images} name={activeOffer.name} />
+          )}
           {decision === "APPROVED" && activeOffer && (
             <>
               <div className="grid grid-cols-2 gap-4">
