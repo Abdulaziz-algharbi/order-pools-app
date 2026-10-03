@@ -5,19 +5,21 @@ import { apiErrorMessage } from "@/lib/http";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { CloseIcon, ImageIcon, TrashIcon } from "@/components/ui/icons";
-import type { UploadedImage } from "@/types/domain";
+import type { ImageRef } from "@/types/domain";
 
-interface ImageUploaderProps {
+interface ImageUploaderProps<T extends ImageRef> {
   /** Id of the file input, for a FieldWrapper's `htmlFor`. */
   id: string;
   purpose: ImagePurpose;
   /** Most images allowed in `value`, counting uploads still running. */
   max: number;
-  /** The finished uploads, in order — the first is the cover. */
-  value: UploadedImage[];
+  /** The images, in order — the first is the cover. New uploads are
+   *  `UploadedImage`s; when editing, the list can also hold images already
+   *  stored on the document (plain `ImageRef`s). */
+  value: T[];
   /** Takes an updater, like a `useState` setter: two uploads finishing
    *  together must each add to the latest list, not overwrite each other. */
-  onChange: Dispatch<SetStateAction<UploadedImage[]>>;
+  onChange: Dispatch<SetStateAction<T[]>>;
   /** Told whenever uploads start or all finish, so a form can hold its submit. */
   onUploadingChange?: (uploading: boolean) => void;
   disabled?: boolean;
@@ -39,7 +41,7 @@ interface PendingUpload {
  * form using this is submitted with `value`; an image dropped before then
  * is cleaned up on Cloudinary by the backend's orphan sweeper.
  */
-export function ImageUploader({
+export function ImageUploader<T extends ImageRef>({
   id,
   purpose,
   max,
@@ -47,7 +49,7 @@ export function ImageUploader({
   onChange,
   onUploadingChange,
   disabled,
-}: ImageUploaderProps) {
+}: ImageUploaderProps<T>) {
   const [pending, setPending] = useState<PendingUpload[]>([]);
   const [rejected, setRejected] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -101,7 +103,10 @@ export function ImageUploader({
 
     try {
       const uploaded = await turn;
-      onChange((images) => [...images, uploaded]);
+      // T is UploadedImage (a new document) or ImageRef (an edited one),
+      // and an upload is both — TypeScript can't express "a supertype of
+      // UploadedImage" as a bound, hence the cast.
+      onChange((images) => [...images, uploaded as unknown as T]);
       dropPending(key);
     } catch (error) {
       if (!controller.signal.aborted) {
@@ -139,7 +144,9 @@ export function ImageUploader({
   return (
     <div className="space-y-3">
       {(value.length > 0 || pending.length > 0) && (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        // As many columns as fit the space it's given (a page or a narrow
+        // modal), each wide enough for its "Set as cover" and remove buttons.
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-3">
           {value.map((image, index) => (
             <li key={image.publicId} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
               <div className="relative aspect-square bg-slate-100">
@@ -156,7 +163,7 @@ export function ImageUploader({
               </div>
               <div className="flex items-center justify-between gap-1 p-1.5">
                 {index === 0 ? (
-                  <span className="px-1 text-xs text-slate-500">Shown first</span>
+                  <span className="whitespace-nowrap px-1 text-xs text-slate-500">Shown first</span>
                 ) : (
                   <Button
                     type="button"

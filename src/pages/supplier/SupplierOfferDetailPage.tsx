@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import { useFetch } from "@/hooks/useFetch";
 import { deleteOffer, getOffer, updateOwnOffer } from "@/services/api";
+import { ImageGallery } from "@/components/domain/ImageGallery";
+import { ImageUploader } from "@/components/domain/ImageUploader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PageSpinner } from "@/components/ui/Spinner";
@@ -11,13 +14,14 @@ import { Modal } from "@/components/ui/Modal";
 import { FieldWrapper, Input, Select, Textarea } from "@/components/ui/Field";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { ApiError } from "@/lib/http";
-import type { ProductOfferUnit } from "@/types/domain";
+import { MAX_OFFER_IMAGES } from "@/lib/cloudinary";
+import type { ImageRef, ProductOfferUnit } from "@/types/domain";
 
-// Both actions are backend-permitted at any offer status, but only make
-// product sense while the offer hasn't been decided yet — once APPROVED a
-// Pool may already have been built from a snapshot of these fields, and
-// REJECTED offers auto-delete on their own 7 days later (see
-// product.offer.model.ts's TTL index).
+// The backend lets the owner edit only a PENDING/NEGOTIATION offer (409
+// otherwise): once APPROVED its pool holds a copy of these fields. It
+// still allows withdrawing at any status, but that only makes sense before
+// a decision too — REJECTED offers auto-delete 7 days later on their own
+// (see product.offer.model.ts's TTL index).
 const EDITABLE_STATUSES = ["PENDING", "NEGOTIATION"];
 
 interface EditForm {
@@ -32,10 +36,14 @@ interface EditForm {
 export function SupplierOfferDetailPage() {
   const { offerId } = useParams<{ offerId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: offer, isLoading, error, refetch } = useFetch(() => getOffer(offerId!), [offerId]);
 
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<EditForm | null>(null);
+  // The offer's current images plus any new uploads, in order.
+  const [images, setImages] = useState<ImageRef[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -55,6 +63,7 @@ export function SupplierOfferDetailPage() {
       wholeQuantity: String(offer.wholeQuantity),
       price: String(offer.price),
     });
+    setImages(offer.images ?? []);
     setEditError(null);
     setEditOpen(true);
   };
@@ -79,6 +88,7 @@ export function SupplierOfferDetailPage() {
         description: form.description.trim(),
         brand: form.brand.trim() || null,
         unit: form.unit,
+        images,
         wholeQuantity,
         price,
       });
@@ -119,6 +129,8 @@ export function SupplierOfferDetailPage() {
             </div>
             <StatusBadge status={offer.status} domain="offer" />
           </div>
+
+          {offer.images?.length > 0 && <ImageGallery images={offer.images} name={offer.name} />}
 
           <p className="text-slate-600">{offer.description}</p>
 
@@ -171,7 +183,7 @@ export function SupplierOfferDetailPage() {
               <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} isLoading={saving}>
+              <Button onClick={handleSave} isLoading={saving} disabled={uploading}>
                 Save
               </Button>
             </>
@@ -190,6 +202,25 @@ export function SupplierOfferDetailPage() {
                 rows={3}
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </FieldWrapper>
+            <FieldWrapper
+              label="Product images"
+              htmlFor="edit-images"
+              hint={
+                user?.isVerified
+                  ? `Up to ${MAX_OFFER_IMAGES}. The first is the cover.`
+                  : "Verify your email address to change the images."
+              }
+            >
+              <ImageUploader
+                id="edit-images"
+                purpose="offer"
+                max={MAX_OFFER_IMAGES}
+                value={images}
+                onChange={setImages}
+                onUploadingChange={setUploading}
+                disabled={!user?.isVerified || saving}
               />
             </FieldWrapper>
             <div className="grid grid-cols-2 gap-4">

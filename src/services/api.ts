@@ -22,6 +22,7 @@ import type {
   ComplaintStatus,
   Delivery,
   DeliveryStatus,
+  ImageRef,
   Payment,
   Pool,
   PoolParticipant,
@@ -413,8 +414,9 @@ export interface UpdateOwnOfferInput {
   description?: string;
   brand?: string | null;
   unit?: ProductOfferUnit;
-  /** The whole list, in order; replaces the stored one. */
-  images?: UploadedImage[];
+  /** The whole list, in order; replaces the stored one. Each is either one
+   *  of the offer's current images, sent back as returned, or a new upload. */
+  images?: Array<ImageRef | UploadedImage>;
   wholeQuantity?: number;
   price?: number;
 }
