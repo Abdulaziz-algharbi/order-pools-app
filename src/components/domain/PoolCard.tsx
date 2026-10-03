@@ -3,6 +3,8 @@ import type { Pool } from "@/types/domain";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { PackageIcon } from "@/components/ui/icons";
+import { cldUrl } from "@/lib/cloudinary";
 import { formatCurrency, formatDate, formatNumber, poolProgress, poolQuantities, daysUntil } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -17,9 +19,23 @@ export function PoolCard({ pool, action, className }: PoolCardProps) {
   const progress = poolProgress(collected, pool.targetQuantity);
   const daysLeft = daysUntil(pool.endDate);
   const isOpen = pool.status === "OPEN";
+  // The offer's first image is its cover.
+  const cover = pool.productImages?.[0];
 
   return (
     <Card className={cn("flex flex-col overflow-hidden", className)}>
+      <div className="flex aspect-[16/10] items-center justify-center bg-slate-100">
+        {cover ? (
+          <img
+            src={cldUrl(cover, "card")}
+            alt={pool.productName}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <PackageIcon role="img" aria-label="No product image" className="h-10 w-10 text-slate-300" />
+        )}
+      </div>
       <div className="flex items-start justify-between gap-3 p-5 pb-0">
         <div className="min-w-0">
           {pool.supplierName && (
