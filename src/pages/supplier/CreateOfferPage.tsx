@@ -3,12 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { createOffer } from "@/services/api";
 import { EmailVerificationRequired } from "@/components/domain/EmailVerification";
+import { ImageUploader } from "@/components/domain/ImageUploader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { FieldWrapper, Input, Select, Textarea } from "@/components/ui/Field";
 import { apiErrorMessage } from "@/lib/http";
+import { MAX_OFFER_IMAGES } from "@/lib/cloudinary";
 import { OFFER_PRICE_HINT, omrPriceError } from "@/lib/pool-pricing";
-import type { ProductOfferUnit } from "@/types/domain";
+import type { ProductOfferUnit, UploadedImage } from "@/types/domain";
 
 const UNITS: ProductOfferUnit[] = ["PIECE", "KG", "BOX", "CARTON"];
 
@@ -35,6 +37,9 @@ export function CreateOfferPage() {
   const { user } = useAuth();
 
   const [form, setForm] = useState<FormState>(initialState);
+  // Uploaded as soon as they're picked; sent with the offer, in order.
+  const [images, setImages] = useState<UploadedImage[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -68,6 +73,7 @@ export function CreateOfferPage() {
         description: form.description.trim(),
         brand: form.brand.trim() || undefined,
         unit: form.unit,
+        images,
         wholeQuantity: Number(form.wholeQuantity),
         price: Number(form.price),
       });
@@ -108,6 +114,22 @@ export function CreateOfferPage() {
                 value={form.description}
                 onChange={update("description")}
                 hasError={!!errors.description}
+              />
+            </FieldWrapper>
+
+            <FieldWrapper
+              label="Product images"
+              htmlFor="images"
+              hint={`Optional, up to ${MAX_OFFER_IMAGES}. The cover is shown on the pool's card; retailers see them all on the pool's page.`}
+            >
+              <ImageUploader
+                id="images"
+                purpose="offer"
+                max={MAX_OFFER_IMAGES}
+                value={images}
+                onChange={setImages}
+                onUploadingChange={setUploading}
+                disabled={!user?.isVerified || submitting}
               />
             </FieldWrapper>
 
@@ -152,13 +174,14 @@ export function CreateOfferPage() {
             </FieldWrapper>
 
             {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+            {uploading && <p className="text-sm text-slate-500">Waiting for images to finish uploading…</p>}
             {!user?.isVerified && <EmailVerificationRequired action="submit an offer" />}
 
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="outline" onClick={() => navigate("/supplier/offers")} disabled={submitting}>
                 Cancel
               </Button>
-              <Button type="submit" isLoading={submitting} disabled={!user?.isVerified}>
+              <Button type="submit" isLoading={submitting} disabled={!user?.isVerified || uploading}>
                 Submit offer
               </Button>
             </div>

@@ -42,6 +42,9 @@ export function cldUrl(image: ImageRef, preset: ImagePreset): string {
 /** The file types the backend signs uploads for (it allows jpg, png, webp). */
 export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
+/** Most images an offer (and so its pool) can have — the backend's MAX_OFFER_IMAGES. */
+export const MAX_OFFER_IMAGES = 10;
+
 /** Largest file the app uploads. Can't be part of the signature, so it's enforced here. */
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 

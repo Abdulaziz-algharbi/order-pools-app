@@ -136,11 +136,40 @@ describe("ImageUploader", () => {
 
     await user().upload(input(), [png("a.png"), png("b.png")]);
     await act(async () => {
-      second.resolve(image("b"));
       first.resolve(image("a"));
+      second.resolve(image("b"));
     });
 
-    expect(latest.map((i) => i.publicId)).toEqual([image("b").publicId, image("a").publicId]);
+    expect(latest).toEqual([image("a"), image("b")]);
+  });
+
+  // The first file picked is the cover, even if a later one uploads faster.
+  it("adds images in the order they were picked, not the order they finish", async () => {
+    const first = deferredUpload();
+    const second = deferredUpload();
+    mockedUpload.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    render(<Harness />);
+
+    await user().upload(input(), [png("a.png"), png("b.png")]);
+    await act(async () => second.resolve(image("b")));
+    expect(latest).toEqual([]);
+
+    await act(async () => first.resolve(image("a")));
+    expect(latest).toEqual([image("a"), image("b")]);
+  });
+
+  it("doesn't let a failed upload hold back the ones picked after it", async () => {
+    const first = deferredUpload();
+    const second = deferredUpload();
+    mockedUpload.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    render(<Harness />);
+
+    await user().upload(input(), [png("a.png"), png("b.png")]);
+    await act(async () => second.resolve(image("b")));
+    await act(async () => first.reject(new ApiError("Invalid image file", 400)));
+
+    expect(latest).toEqual([image("b")]);
+    expect(screen.getByLabelText("a.png failed")).toBeInTheDocument();
   });
 
   it.each([

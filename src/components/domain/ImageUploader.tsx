@@ -53,6 +53,10 @@ export function ImageUploader({
   const inputRef = useRef<HTMLInputElement>(null);
   const nextKey = useRef(0);
   const controllers = useRef(new Map<number, AbortController>());
+  // Settles once every earlier upload has been added (or has failed), so
+  // images are added in the order they were picked, not the order their
+  // uploads happen to finish — the first one picked becomes the cover.
+  const addQueue = useRef<Promise<void>>(Promise.resolve());
 
   const running = pending.filter((p) => !p.error);
   const uploading = running.length > 0;
@@ -85,11 +89,18 @@ export function ImageUploader({
     controllers.current.set(key, controller);
     setPending((list) => [...list, { key, name: file.name, preview, progress: 0, error: null }]);
 
+    const upload = uploadImage(file, purpose, {
+      signal: controller.signal,
+      onProgress: (fraction) => updatePending(key, { progress: fraction }),
+    });
+    const turn = addQueue.current.then(() => upload);
+    addQueue.current = turn.then(
+      () => undefined,
+      () => undefined,
+    );
+
     try {
-      const uploaded = await uploadImage(file, purpose, {
-        signal: controller.signal,
-        onProgress: (fraction) => updatePending(key, { progress: fraction }),
-      });
+      const uploaded = await turn;
       onChange((images) => [...images, uploaded]);
       dropPending(key);
     } catch (error) {
