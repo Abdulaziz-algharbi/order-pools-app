@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { Avatar } from "@/components/domain/Avatar";
 import { useNotifications } from "@/hooks/useNotifications";
 import { NotificationItem } from "@/components/domain/NotificationItem";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -144,9 +145,13 @@ export function Topbar({
             onClick={() => setProfileOpen((o) => !o)}
             className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-100"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-tertiary/10 text-tertiary">
-              <UserIcon className="h-4.5 w-4.5" />
-            </div>
+            {user ? (
+              <Avatar user={user} size="sm" decorative />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-tertiary/10 text-tertiary">
+                <UserIcon className="h-4.5 w-4.5" />
+              </div>
+            )}
             <span className="hidden max-w-[10rem] truncate text-sm font-medium text-primary sm:block">
               {displayName}
             </span>

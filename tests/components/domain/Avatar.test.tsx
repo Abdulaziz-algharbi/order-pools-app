@@ -28,4 +28,20 @@ describe("Avatar", () => {
 
     expect(screen.getByText("?")).toBeInTheDocument();
   });
+
+  it("can be hidden from screen readers where the name is shown beside it", () => {
+    const { container, rerender } = render(
+      <Avatar user={{ firstName: "Aisha", lastName: "Said", profileImage: null }} decorative />,
+    );
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(container.firstChild).toHaveAttribute("aria-hidden", "true");
+
+    rerender(
+      <Avatar
+        user={{ firstName: "Aisha", lastName: "Said", profileImage: { publicId: "p", version: 1 } }}
+        decorative
+      />,
+    );
+    expect(container.querySelector("img")).toHaveAttribute("alt", "");
+  });
 });

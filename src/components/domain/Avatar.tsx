@@ -12,6 +12,8 @@ interface AvatarProps {
   user: Pick<AppUser, "firstName" | "lastName" | "profileImage">;
   size?: keyof typeof SIZES;
   className?: string;
+  /** Hidden from screen readers — for where the name is already shown next to it. */
+  decorative?: boolean;
 }
 
 function initials({ firstName, lastName }: Pick<AppUser, "firstName" | "lastName">): string {
@@ -19,17 +21,22 @@ function initials({ firstName, lastName }: Pick<AppUser, "firstName" | "lastName
 }
 
 /** A user's profile photo, or their initials when they haven't set one. */
-export function Avatar({ user, size = "md", className }: AvatarProps) {
+export function Avatar({ user, size = "md", className, decorative }: AvatarProps) {
   const name = `${user.firstName} ${user.lastName}`.trim();
   const base = cn("shrink-0 overflow-hidden rounded-full", SIZES[size], className);
 
   if (user.profileImage) {
-    return <img src={cldUrl(user.profileImage, "avatar")} alt={name} className={cn(base, "object-cover")} />;
+    return (
+      <img
+        src={cldUrl(user.profileImage, "avatar")}
+        alt={decorative ? "" : name}
+        className={cn(base, "object-cover")}
+      />
+    );
   }
   return (
     <span
-      role="img"
-      aria-label={name}
+      {...(decorative ? { "aria-hidden": true } : { role: "img", "aria-label": name })}
       className={cn(base, "flex items-center justify-center bg-tertiary/10 font-heading font-semibold text-tertiary")}
     >
       {initials(user)}
