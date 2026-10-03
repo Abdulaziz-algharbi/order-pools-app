@@ -39,6 +39,23 @@ export function cldUrl(image: ImageRef, preset: ImagePreset): string {
   return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${IMAGE_PRESETS[preset]},f_auto,q_auto/v${image.version}/${image.publicId}`;
 }
 
+/** The file types the backend signs uploads for (it allows jpg, png, webp). */
+export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+/** Largest file the app uploads. Can't be part of the signature, so it's enforced here. */
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+/** Why `file` can't be uploaded, or null if it can. */
+export function imageFileError(file: File): string | null {
+  if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+    return `${file.name} isn't a JPG, PNG or WebP image.`;
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    return `${file.name} is larger than 5 MB.`;
+  }
+  return null;
+}
+
 /** What `POST /uploads/{offer-image|profile-image}/signature` returns. */
 export interface SignedUpload {
   uploadUrl: string;

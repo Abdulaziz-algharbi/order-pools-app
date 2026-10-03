@@ -185,3 +185,11 @@ export const WalletIcon = (props: IconProps) => (
     <path d="M16 14h2" />
   </svg>
 );
+
+export const ImageIcon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <circle cx="9" cy="9" r="2" />
+    <path d="m21 15-3.5-3.5a1 1 0 0 0-1.4 0L6 21.5" />
+  </svg>
+);

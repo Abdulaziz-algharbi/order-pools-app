@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { IMAGE_PRESETS, cldUrl } from "@/lib/cloudinary";
+import { IMAGE_PRESETS, MAX_IMAGE_BYTES, cldUrl, imageFileError } from "@/lib/cloudinary";
 
 const image = { publicId: "orderpools/dev/offers/u1/cover", version: 1712345678 };
 
@@ -22,3 +22,26 @@ describe("cldUrl", () => {
     expect(cldUrl({ ...image, version: 2 }, "thumb")).not.toBe(cldUrl(image, "thumb"));
   });
 });
+
+describe("imageFileError", () => {
+  const file = (type: string, size = 1000) => {
+    const f = new File(["x"], "photo", { type });
+    Object.defineProperty(f, "size", { value: size });
+    return f;
+  };
+
+  it.each(["image/jpeg", "image/png", "image/webp"])("accepts %s", (type) => {
+    expect(imageFileError(file(type))).toBeNull();
+  });
+
+  it.each(["image/gif", "image/svg+xml", "application/pdf", ""])("refuses %s", (type) => {
+    expect(imageFileError(file(type))).toBe("photo isn't a JPG, PNG or WebP image.");
+  });
+
+  it("accepts exactly 5 MB and refuses more", () => {
+    expect(MAX_IMAGE_BYTES).toBe(5 * 1024 * 1024);
+    expect(imageFileError(file("image/png", MAX_IMAGE_BYTES))).toBeNull();
+    expect(imageFileError(file("image/png", MAX_IMAGE_BYTES + 1))).toBe("photo is larger than 5 MB.");
+  });
+});
+
