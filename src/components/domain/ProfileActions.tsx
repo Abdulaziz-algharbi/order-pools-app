@@ -20,14 +20,15 @@ interface EditForm {
 }
 
 interface ProfileActionsProps {
-  /** Role-scoped path to this panel's address book page. */
-  addressesPath: string;
+  /** Role-scoped path to this panel's address book page; omitted where the panel has none. */
+  addressesPath?: string;
+  /** Whether to offer closing the account (not on the admin panel). */
+  canRemoveAccount?: boolean;
 }
 
-// Shared by RetailerProfilePage and SupplierProfilePage — both need the
-// same edit-profile / address-book / account-removal actions, differing
-// only in which panel's address book to link to.
-export function ProfileActions({ addressesPath }: ProfileActionsProps) {
+// The account actions on the shared ProfilePage: edit profile, link to the
+// panel's address book, and close the account.
+export function ProfileActions({ addressesPath, canRemoveAccount = true }: ProfileActionsProps) {
   const { user, updateProfile, removeAccount } = useAuth();
   const navigate = useNavigate();
   const isSupplier = !!user?.roles.includes("SUPPLIER");
@@ -123,41 +124,47 @@ export function ProfileActions({ addressesPath }: ProfileActionsProps) {
         <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="font-medium text-primary">Account settings</p>
-            <p className="mt-1 text-sm text-slate-500">Update your details, or manage your delivery addresses.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {addressesPath ? "Update your details, or manage your delivery addresses." : "Update your details."}
+            </p>
           </div>
           <div className="flex shrink-0 gap-2">
-            <LinkButton to={addressesPath} variant="outline">
-              Addresses
-            </LinkButton>
+            {addressesPath && (
+              <LinkButton to={addressesPath} variant="outline">
+                Addresses
+              </LinkButton>
+            )}
             <Button onClick={openEdit}>Edit profile</Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="border-red-200">
-        <CardContent>
-          <p className="font-medium text-primary">
-            {isSupplier ? "Close your account" : "Delete your account"}
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            {isSupplier
-              ? "As a supplier, this opens a request for an admin to review before your account is removed."
-              : "This permanently deletes your account. This cannot be undone."}
-          </p>
-          <div className="mt-3">
-            {pendingRemoval ? (
-              <div className="flex items-center gap-2">
-                <StatusBadge status={pendingRemoval.status} domain="review" />
-                <span className="text-sm text-slate-500">Your removal request is awaiting admin review.</span>
-              </div>
-            ) : (
-              <Button variant="danger" onClick={() => setRemoveOpen(true)}>
-                {isSupplier ? "Request account closure" : "Delete account"}
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {canRemoveAccount && (
+        <Card className="border-red-200">
+          <CardContent>
+            <p className="font-medium text-primary">
+              {isSupplier ? "Close your account" : "Delete your account"}
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              {isSupplier
+                ? "As a supplier, this opens a request for an admin to review before your account is removed."
+                : "This permanently deletes your account. This cannot be undone."}
+            </p>
+            <div className="mt-3">
+              {pendingRemoval ? (
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={pendingRemoval.status} domain="review" />
+                  <span className="text-sm text-slate-500">Your removal request is awaiting admin review.</span>
+                </div>
+              ) : (
+                <Button variant="danger" onClick={() => setRemoveOpen(true)}>
+                  {isSupplier ? "Request account closure" : "Delete account"}
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {form && (
         <Modal

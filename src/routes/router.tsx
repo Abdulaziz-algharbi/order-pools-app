@@ -6,6 +6,7 @@ import { SignupPage } from "@/pages/auth/SignupPage";
 import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { NotificationsPage } from "@/pages/shared/NotificationsPage";
+import { ProfilePage } from "@/pages/shared/ProfilePage";
 import { PaymentResultPage } from "@/pages/shared/PaymentResultPage";
 import { AddressBookPage } from "@/pages/shared/AddressBookPage";
 
@@ -15,7 +16,6 @@ import { PoolDetailPage } from "@/pages/retailer/PoolDetailPage";
 import { MyJoinsPage } from "@/pages/retailer/MyJoinsPage";
 import { TrackDeliveryPage } from "@/pages/retailer/TrackDeliveryPage";
 import { ComplaintsPage } from "@/pages/retailer/ComplaintsPage";
-import { RetailerProfilePage } from "@/pages/retailer/RetailerProfilePage";
 
 import { SupplierDashboard } from "@/pages/supplier/SupplierDashboard";
 import { SupplierPoolsPage } from "@/pages/supplier/SupplierPoolsPage";
@@ -25,7 +25,6 @@ import { SupplierOfferDetailPage } from "@/pages/supplier/SupplierOfferDetailPag
 import { CreateOfferPage } from "@/pages/supplier/CreateOfferPage";
 import { SupplierPoolHistoryPage } from "@/pages/supplier/SupplierPoolHistoryPage";
 import { SupplierPayoutsPage } from "@/pages/supplier/SupplierPayoutsPage";
-import { SupplierProfilePage } from "@/pages/supplier/SupplierProfilePage";
 
 import { AdminDashboard } from "@/pages/admin/AdminDashboard";
 import { AdminOffersPage } from "@/pages/admin/AdminOffersPage";
@@ -60,7 +59,7 @@ export const router = createBrowserRouter([
       { path: "track", element: <TrackDeliveryPage />, handle: { title: "Track Deliveries" } },
       { path: "complaints", element: <ComplaintsPage />, handle: { title: "Complaints" } },
       { path: "notifications", element: <NotificationsPage />, handle: { title: "Notifications" } },
-      { path: "profile", element: <RetailerProfilePage />, handle: { title: "Profile" } },
+      { path: "profile", element: <ProfilePage panel="retailer" />, handle: { title: "Profile" } },
       { path: "addresses", element: <AddressBookPage />, handle: { title: "Addresses" } },
     ],
   },
@@ -78,7 +77,7 @@ export const router = createBrowserRouter([
       { path: "history", element: <SupplierPoolHistoryPage />, handle: { title: "Pool History" } },
       { path: "payouts", element: <SupplierPayoutsPage />, handle: { title: "Payouts" } },
       { path: "notifications", element: <NotificationsPage />, handle: { title: "Notifications" } },
-      { path: "profile", element: <SupplierProfilePage />, handle: { title: "Profile" } },
+      { path: "profile", element: <ProfilePage panel="supplier" />, handle: { title: "Profile" } },
       { path: "addresses", element: <AddressBookPage />, handle: { title: "Addresses" } },
     ],
   },
@@ -100,6 +99,7 @@ export const router = createBrowserRouter([
       { path: "payouts", element: <AdminPayoutsPage />, handle: { title: "Payouts" } },
       { path: "suppliers", element: <AdminSuppliersPage />, handle: { title: "Suppliers" } },
       { path: "retailers", element: <AdminRetailersPage />, handle: { title: "Retailers" } },
+      { path: "profile", element: <ProfilePage panel="admin" />, handle: { title: "Profile" } },
     ],
   },
 

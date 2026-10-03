@@ -15,7 +15,6 @@ import {
 import type { AppNotification } from "@/types/domain";
 import type { Panel } from "@/lib/panel";
 import { PANEL_LABEL, panelsFor } from "@/lib/panel";
-import { cn } from "@/lib/utils";
 
 const NOTIFICATIONS_PAGE: Partial<Record<Panel, string>> = {
   retailer: "/retailer/notifications",
@@ -162,10 +161,7 @@ export function Topbar({
                   navigate(`/${role}/profile`);
                   setProfileOpen(false);
                 }}
-                className={cn(
-                  "flex w-full items-center gap-2 px-4 py-2 text-sm text-primary hover:bg-slate-50",
-                  role === "admin" && "hidden",
-                )}
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-primary hover:bg-slate-50"
               >
                 <UserIcon className="h-4 w-4" /> Profile
               </button>

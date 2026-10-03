@@ -49,7 +49,7 @@ Real JWT access/refresh tokens, held only in httpOnly cookies set and cleared by
 - **Path alias**: `@/*` → `src/*` (configured in both `vite.config.ts` and `tsconfig.app.json`).
 - **Component layers**:
   - `components/ui/` — generic, role-agnostic primitives (Button, Modal, DataTable, StatusBadge, form fields, empty/error/loading states).
-  - `components/domain/` — Order-Pool-specific presentational pieces reused across roles (PoolCard, PoolOverview, NotificationItem, ProfileCard, ProfileActions, AddressFields).
+  - `components/domain/` — Order-Pool-specific presentational pieces reused across roles (PoolCard, PoolOverview, NotificationItem, ProfileCard, ProfileActions, ProfilePhoto, Avatar, SupplierAccessCard, ImageUploader, ImageGallery, AddressFields).
   - `components/layout/` — the app shell, sidebar, topbar, page header.
 - **Pages** are grouped by role under `src/pages/{retailer,supplier,admin}/`, plus `src/pages/shared/` for pages identical across roles (Notifications, the address book, the payment-result landing page) and `src/pages/auth/` for login/signup.
 - **Routing** lives entirely in `src/routes/router.tsx`; role-based navigation items live in `src/config/nav.ts`. Not every route needs a nav entry — some (address book) are only linked to from another page.

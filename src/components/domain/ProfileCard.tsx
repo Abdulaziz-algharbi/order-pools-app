@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
-import { UserIcon } from "@/components/ui/icons";
 
 interface ProfileField {
   label: string;
@@ -13,16 +12,15 @@ interface ProfileCardProps {
   email: string;
   fields: ProfileField[];
   badge?: ReactNode;
+  /** The profile photo (with its controls) shown beside the name. */
+  avatar: ReactNode;
 }
 
-export function ProfileCard({ name, subtitle, email, fields, badge }: ProfileCardProps) {
+export function ProfileCard({ name, subtitle, email, fields, badge, avatar }: ProfileCardProps) {
   return (
     <Card className="mx-auto max-w-2xl">
       <CardContent className="space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-tertiary/10 text-tertiary">
-            <UserIcon className="h-8 w-8" />
-          </div>
+        <div className="space-y-5">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h2 className="truncate font-heading text-lg font-semibold text-primary">{name}</h2>
@@ -31,6 +29,7 @@ export function ProfileCard({ name, subtitle, email, fields, badge }: ProfileCar
             <p className="truncate text-sm text-slate-500">{subtitle}</p>
             <p className="truncate text-sm text-slate-400">{email}</p>
           </div>
+          {avatar}
         </div>
 
         <dl className="grid grid-cols-1 gap-4 border-t border-slate-100 pt-6 sm:grid-cols-2">

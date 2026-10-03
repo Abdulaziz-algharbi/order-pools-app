@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { RetailerProfilePage } from "@/pages/retailer/RetailerProfilePage";
+import { ProfilePage } from "@/pages/shared/ProfilePage";
 import { useAuth } from "@/context/AuthContext";
 import * as api from "@/services/api";
 import { ApiError } from "@/lib/http";
@@ -11,6 +11,7 @@ import type { AppUser, SupplierRequest } from "@/types/domain";
 vi.mock("@/context/AuthContext", () => ({ useAuth: vi.fn() }));
 
 vi.mock("@/services/api", () => ({
+  uploadImage: vi.fn(),
   createSupplierRequest: vi.fn(),
   listMyAddresses: vi.fn(),
   listSupplierRequests: vi.fn(),
@@ -54,7 +55,7 @@ function renderPage() {
   render(
     <MemoryRouter initialEntries={["/retailer/profile"]}>
       <Routes>
-        <Route path="/retailer/profile" element={<RetailerProfilePage />} />
+        <Route path="/retailer/profile" element={<ProfilePage panel="retailer" />} />
         <Route path="/supplier" element={<p>Supplier panel</p>} />
       </Routes>
     </MemoryRouter>,
@@ -77,7 +78,7 @@ beforeEach(() => {
   mockedApi.listSupplierRemoveRequests.mockResolvedValue([]);
 });
 
-describe("RetailerProfilePage — supplier request outcome", () => {
+describe("ProfilePage (retailer) — supplier request outcome", () => {
   it("shows the admin's note on a rejected request and lets the retailer request again", async () => {
     mockedApi.listSupplierRequests.mockResolvedValue([
       request({ status: "REJECTED", adminComment: "Add your CR number first." }),
@@ -145,7 +146,7 @@ describe("RetailerProfilePage — supplier request outcome", () => {
   });
 });
 
-describe("RetailerProfilePage — filing a supplier request", () => {
+describe("ProfilePage (retailer) — filing a supplier request", () => {
   function signInAs(overrides: Partial<AppUser>) {
     mockedUseAuth.mockReturnValue({ ...mockedUseAuth(), user: { ...retailer, ...overrides } });
   }
@@ -253,7 +254,7 @@ describe("RetailerProfilePage — filing a supplier request", () => {
   });
 });
 
-describe("RetailerProfilePage — unverified email", () => {
+describe("ProfilePage (retailer) — unverified email", () => {
   beforeEach(() => {
     mockedUseAuth.mockReturnValue({ ...mockedUseAuth(), user: { ...retailer, isVerified: false } });
   });
@@ -284,3 +285,52 @@ describe("RetailerProfilePage — unverified email", () => {
     expect(screen.queryByText(/Verify your email address to request supplier access/)).not.toBeInTheDocument();
   });
 });
+
+describe("ProfilePage — per panel", () => {
+  function renderPanel(panel: "retailer" | "supplier" | "admin", overrides: Partial<AppUser> = {}) {
+    mockedUseAuth.mockReturnValue({ ...mockedUseAuth(), user: { ...retailer, ...overrides } });
+    mockedApi.listSupplierRequests.mockResolvedValue([]);
+    render(
+      <MemoryRouter initialEntries={[`/${panel}/profile`]}>
+        <Routes>
+          <Route path={`/${panel}/profile`} element={<ProfilePage panel={panel} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  it.each(["retailer", "supplier", "admin"] as const)("shows the profile photo controls on the %s panel", async (panel) => {
+    renderPanel(panel, { roles: ["RETAILER", "SUPPLIER", "ADMIN"] });
+
+    expect(await screen.findByRole("button", { name: "Upload photo" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Aisha Said" })).toHaveTextContent("AS");
+  });
+
+  it("shows a supplier their commercial identifiers and address book, without the supplier-request card", async () => {
+    renderPanel("supplier", {
+      roles: ["RETAILER", "SUPPLIER"],
+      commercialRegistration: "1234567",
+      vatNumber: "OM1100012345",
+    });
+
+    expect(await screen.findByText("1234567")).toBeInTheDocument();
+    expect(screen.getByText("OM1100012345")).toBeInTheDocument();
+    expect(screen.getByText("Supplier")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Addresses" })).toHaveAttribute("href", "/supplier/addresses");
+    expect(screen.queryByText("Become a supplier")).not.toBeInTheDocument();
+  });
+
+  // The backend deletes an admin-only account outright, so it isn't offered.
+  it("gives an admin a profile without an address book or account closure", async () => {
+    renderPanel("admin", { roles: ["ADMIN"] });
+
+    expect(await screen.findByText("Administrator")).toBeInTheDocument();
+    expect(screen.getByText("Your administrator account.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit profile" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Addresses" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Delete account|Request account closure/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("Become a supplier")).not.toBeInTheDocument();
+    expect(mockedApi.listMyAddresses).not.toHaveBeenCalled();
+  });
+});
+
