@@ -34,6 +34,7 @@ function makeOffer(overrides: Partial<ProductOffer> = {}): ProductOffer {
     unit: "BOX",
     images: [stored("cover"), stored("side")],
     wholeQuantity: 40,
+    totalWholesalePrice: 120,
     price: 3,
     status: "PENDING",
     createdAt: "2026-10-01T00:00:00.000Z",

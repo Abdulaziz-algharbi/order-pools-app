@@ -212,24 +212,26 @@ export async function getPool(id: string): Promise<Pool> {
 
 export interface CreatePoolInput {
   productoffer_ref: string;
-  currentQuantity: number;
   minimumContribution: number;
-  pricePerUnit: number;
+  /** OMR per lot of `minimumContribution` units. */
+  minimumContributionPrice: number;
   startDate?: string;
   endDate: string;
 }
 
-// ADMIN only, and only from an APPROVED offer — the backend snapshots the
-// offer's display fields (name/description/image/unit) and its supplier's
-// company name onto the pool itself at creation time.
+// ADMIN only, and only from an APPROVED offer whose earlier pool was
+// CANCELLED (approving an offer already opens its first pool; one live
+// pool per offer). The pool's quantity is the offer's wholeQuantity, and
+// the backend snapshots the offer's display fields (name/description/
+// images/unit) and its supplier's company name onto the pool.
 export async function createPool(input: CreatePoolInput): Promise<Pool> {
   return request<Pool>("/pools", { method: "POST", body: input });
 }
 
+// No pricing and no currentQuantity: the backend refuses them once a pool
+// exists (retailers joined at its terms; only joins and withdrawals move
+// what's still free).
 export interface UpdatePoolInput {
-  currentQuantity?: number;
-  minimumContribution?: number;
-  pricePerUnit?: number;
   startDate?: string;
   endDate?: string;
   status?: PoolStatus;
@@ -402,7 +404,10 @@ export interface CreateOfferInput {
   /** Uploads from `uploadImage(file, "offer")`, in order — the first is the cover. */
   images?: UploadedImage[];
   wholeQuantity: number;
-  price: number;
+  /** OMR for the whole offer. */
+  totalWholesalePrice?: number;
+  /** @deprecated Refused by the backend; replaced by `totalWholesalePrice`. Until CreateOfferPage moves over. */
+  price?: number;
 }
 
 export async function createOffer(input: CreateOfferInput): Promise<ProductOffer> {
@@ -418,6 +423,9 @@ export interface UpdateOwnOfferInput {
    *  of the offer's current images, sent back as returned, or a new upload. */
   images?: Array<ImageRef | UploadedImage>;
   wholeQuantity?: number;
+  /** OMR for the whole offer. */
+  totalWholesalePrice?: number;
+  /** @deprecated Refused by the backend; replaced by `totalWholesalePrice`. Until SupplierOfferDetailPage moves over. */
   price?: number;
 }
 
@@ -438,7 +446,10 @@ export async function reviewOffer(
 
 export interface ApproveOfferInput {
   minimumContribution: number;
-  pricePerUnit: number;
+  /** OMR per lot of `minimumContribution` units; must cover the supplier's cost of a lot. */
+  minimumContributionPrice?: number;
+  /** @deprecated Refused by the backend; replaced by `minimumContributionPrice`. Until AdminOffersPage moves over. */
+  pricePerUnit?: number;
   startDate?: string;
   endDate: string;
   adminComment?: string;

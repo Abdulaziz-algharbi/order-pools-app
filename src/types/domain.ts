@@ -99,6 +99,13 @@ export interface ProductOffer {
   /** Up to 10, in order — the first is the cover. */
   images: ImageRef[];
   wholeQuantity: number;
+  /** OMR for the whole offer (all `wholeQuantity` units): what the supplier is paid. */
+  totalWholesalePrice: number;
+  /**
+   * @deprecated The backend no longer sends it (renamed to
+   * `totalWholesalePrice`, the whole offer's price). Kept only until every
+   * page has moved over — see order-pools-backend/docs/pricing-model-plan.md.
+   */
   price: number;
   status: ProductOfferStatus;
   adminComment?: string | null;
@@ -140,7 +147,15 @@ export interface Pool {
   currentQuantity: number;
   /** Quantity actually paid for. The pool only reaches TARGET_REACHED once this covers targetQuantity. Absent on legacy pools. */
   paidQuantity?: number;
+  /** Joins come in lots of this many units (the last joiner also takes any leftover). */
   minimumContribution: number;
+  /** OMR per lot of `minimumContribution` units. Locked once the pool exists. */
+  minimumContributionPrice: number;
+  /**
+   * @deprecated The backend no longer sends it: pools are priced per lot
+   * (`minimumContributionPrice`). Kept only until every page has moved
+   * over — see order-pools-backend/docs/pricing-model-plan.md.
+   */
   pricePerUnit: number;
   startDate: string;
   endDate: string;
