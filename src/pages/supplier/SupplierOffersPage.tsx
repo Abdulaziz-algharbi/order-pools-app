@@ -7,7 +7,8 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { LinkButton } from "@/components/ui/LinkButton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { PlusIcon } from "@/components/ui/icons";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber } from "@/lib/utils";
+import { formatOmrAmount } from "@/lib/pool-pricing";
 import type { ProductOffer } from "@/types/domain";
 
 export function SupplierOffersPage() {
@@ -27,7 +28,7 @@ export function SupplierOffersPage() {
       ),
     },
     { key: "quantity", header: "Quantity", render: (o) => `${formatNumber(o.wholeQuantity)} ${o.unit.toLowerCase()}` },
-    { key: "price", header: "Price", render: (o) => formatCurrency(o.price) },
+    { key: "price", header: "Total price", render: (o) => formatOmrAmount(o.totalWholesalePrice) },
     { key: "submitted", header: "Submitted", render: (o) => formatDate(o.createdAt) },
     { key: "status", header: "Status", render: (o) => <StatusBadge status={o.status} domain="offer" /> },
   ];

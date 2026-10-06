@@ -45,6 +45,24 @@ export function formatOmr(baisa: number): string {
   return (baisa / 1000).toFixed(3);
 }
 
+const omrFormatter = new Intl.NumberFormat("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+
+/**
+ * An OMR amount for display, grouped and with its 3 decimals:
+ * 1000 -> "1,000.000 OMR". "—" for a missing value, like formatCurrency.
+ */
+export function formatOmrAmount(omr: number | undefined | null): string {
+  return Number.isFinite(omr) ? `${omrFormatter.format(toBaisa(omr as number) / 1000)} OMR` : "—";
+}
+
+/**
+ * What one unit of an offer comes to, to the nearest baisa — only a
+ * read-only guide for the supplier, who prices the whole offer.
+ */
+export function approxUnitPriceBaisa(offer: OfferTerms): number {
+  return Math.round(toBaisa(offer.totalWholesalePrice) / offer.wholeQuantity);
+}
+
 /**
  * The lowest minimumContributionPrice that still covers the supplier's cost
  * of minimumContribution units, rounded up to the baisa. A guide (the
@@ -154,15 +172,23 @@ export function contributionBaisa(pool: PoolTerms, quantity: number): number {
 /**
  * Problem with an OMR amount typed into a form, or null. OMR has 3
  * decimals, so 1 baisa (0.001) is the smallest amount the payment provider
- * can charge — the backend's omrPrice rule. (Its message still says "per
- * unit" until F3 moves the offer form to the whole-offer price.)
+ * can charge — the backend's omrPrice rule.
  */
 export function omrPriceError(priceInput: string): string | null {
   const price = Number(priceInput);
   if (priceInput.trim() === "" || !(price > 0)) return "Enter a price greater than 0.";
   const baisa = Math.round(price * 1000);
   if (Math.abs(price * 1000 - baisa) > 1e-6 || baisa < 1) {
-    return "Price per unit must be at least 0.001 OMR, with at most 3 decimal places (1 baisa = 0.001 OMR).";
+    return "Enter at least 0.001 OMR, with at most 3 decimal places (1 baisa = 0.001 OMR).";
+  }
+  return null;
+}
+
+/** Problem with a quantity typed into a form, or null: quantities are whole numbers (the backend's unitQuantity). */
+export function wholeQuantityError(quantityInput: string): string | null {
+  const quantity = Number(quantityInput);
+  if (quantityInput.trim() === "" || !Number.isInteger(quantity) || quantity <= 0) {
+    return "Enter a whole number greater than 0.";
   }
   return null;
 }

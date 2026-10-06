@@ -12,7 +12,14 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { FieldWrapper, Input, Select, Textarea } from "@/components/ui/Field";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber } from "@/lib/utils";
+import {
+  approxUnitPriceBaisa,
+  formatOmr,
+  formatOmrAmount,
+  omrPriceError,
+  wholeQuantityError,
+} from "@/lib/pool-pricing";
 import { ApiError } from "@/lib/http";
 import { MAX_OFFER_IMAGES } from "@/lib/cloudinary";
 import type { ImageRef, ProductOfferUnit } from "@/types/domain";
@@ -30,7 +37,7 @@ interface EditForm {
   brand: string;
   unit: ProductOfferUnit;
   wholeQuantity: string;
-  price: string;
+  totalWholesalePrice: string;
 }
 
 export function SupplierOfferDetailPage() {
@@ -61,7 +68,7 @@ export function SupplierOfferDetailPage() {
       brand: offer.brand ?? "",
       unit: offer.unit,
       wholeQuantity: String(offer.wholeQuantity),
-      price: String(offer.price),
+      totalWholesalePrice: String(offer.totalWholesalePrice),
     });
     setImages(offer.images ?? []);
     setEditError(null);
@@ -70,14 +77,18 @@ export function SupplierOfferDetailPage() {
 
   const handleSave = async () => {
     if (!form) return;
-    const wholeQuantity = Number(form.wholeQuantity);
-    const price = Number(form.price);
     if (!form.name.trim() || !form.description.trim()) {
       setEditError("Name and description are required.");
       return;
     }
-    if (!wholeQuantity || wholeQuantity <= 0 || !price || price <= 0) {
-      setEditError("Quantity and price must be positive numbers.");
+    const quantityError = wholeQuantityError(form.wholeQuantity);
+    if (quantityError) {
+      setEditError(`Whole quantity: ${quantityError}`);
+      return;
+    }
+    const priceError = omrPriceError(form.totalWholesalePrice);
+    if (priceError) {
+      setEditError(`Total wholesale price: ${priceError}`);
       return;
     }
     setSaving(true);
@@ -89,8 +100,8 @@ export function SupplierOfferDetailPage() {
         brand: form.brand.trim() || null,
         unit: form.unit,
         images,
-        wholeQuantity,
-        price,
+        wholeQuantity: Number(form.wholeQuantity),
+        totalWholesalePrice: Number(form.totalWholesalePrice),
       });
       setEditOpen(false);
       refetch();
@@ -142,9 +153,12 @@ export function SupplierOfferDetailPage() {
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-400">Price</dt>
+              <dt className="text-xs text-slate-400">Total wholesale price</dt>
               <dd className="font-heading text-lg font-semibold text-primary">
-                {formatCurrency(offer.price)} / {offer.unit.toLowerCase()}
+                {formatOmrAmount(offer.totalWholesalePrice)}
+              </dd>
+              <dd className="text-xs text-slate-500">
+                ≈ {formatOmr(approxUnitPriceBaisa(offer))} OMR per {offer.unit.toLowerCase()}
               </dd>
             </div>
             <div>
@@ -241,24 +255,26 @@ export function SupplierOfferDetailPage() {
                   id="edit-qty"
                   type="number"
                   min={1}
+                  step={1}
                   value={form.wholeQuantity}
                   onChange={(e) => setForm({ ...form, wholeQuantity: e.target.value })}
                 />
               </FieldWrapper>
             </div>
             <FieldWrapper
-              label="Price per unit"
+              label="Total wholesale price (OMR)"
               htmlFor="edit-price"
               error={editError ?? undefined}
+              hint="The price for the whole offer, all units together."
               required
             >
               <Input
                 id="edit-price"
                 type="number"
-                min={0}
-                step="0.01"
-                value={form.price}
-                onChange={(e) => setForm({ ...form, price: e.target.value })}
+                min={0.001}
+                step="0.001"
+                value={form.totalWholesalePrice}
+                onChange={(e) => setForm({ ...form, totalWholesalePrice: e.target.value })}
                 hasError={!!editError}
               />
             </FieldWrapper>

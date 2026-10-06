@@ -65,7 +65,7 @@ describe("CreateOfferPage — product images", () => {
     await user().type(screen.getByLabelText(/Product name/), "Dates 5kg");
     await user().type(screen.getByLabelText(/Description/), "Khalas dates");
     await user().type(screen.getByLabelText(/Quantity/), "40");
-    await user().type(screen.getByLabelText(/Price per unit/), "3");
+    await user().type(screen.getByLabelText(/Total wholesale price/), "120");
   }
 
   it("uploads offer images and sends them with the offer, the chosen cover first", async () => {
@@ -124,3 +124,59 @@ describe("CreateOfferPage — product images", () => {
   });
 });
 
+
+describe("CreateOfferPage — whole-offer price", () => {
+  const user = () => userEvent.setup();
+
+  beforeEach(() => {
+    mockedUseAuth.mockReturnValue(authValue(makeUser({ roles: ["SUPPLIER"], isVerified: true })));
+    mockedCreateOffer.mockResolvedValue({} as never);
+  });
+
+  async function fill(quantity: string, total: string) {
+    await user().type(screen.getByLabelText(/Product name/), "Dates 5kg");
+    await user().type(screen.getByLabelText(/Description/), "Khalas dates");
+    await user().type(screen.getByLabelText(/Quantity/), quantity);
+    await user().type(screen.getByLabelText(/Total wholesale price/), total);
+  }
+
+  it("shows what one unit comes to, as a guide", async () => {
+    renderPage();
+
+    await fill("100", "1000");
+
+    expect(screen.getByText(/≈ 10\.000 OMR per piece/)).toBeInTheDocument();
+  });
+
+  it("sends the whole offer's price as totalWholesalePrice", async () => {
+    renderPage();
+
+    await fill("100", "1000");
+    await user().click(screen.getByRole("button", { name: "Submit offer" }));
+
+    expect(mockedCreateOffer).toHaveBeenCalledWith(
+      expect.objectContaining({ wholeQuantity: 100, totalWholesalePrice: 1000 }),
+    );
+    expect(mockedCreateOffer.mock.calls[0][0]).not.toHaveProperty("price");
+  });
+
+  it("refuses a fractional quantity, as the backend does", async () => {
+    renderPage();
+
+    await fill("12.5", "1000");
+    await user().click(screen.getByRole("button", { name: "Submit offer" }));
+
+    expect(screen.getByText("Enter a whole number greater than 0.")).toBeInTheDocument();
+    expect(mockedCreateOffer).not.toHaveBeenCalled();
+  });
+
+  it("refuses a price finer than 1 baisa", async () => {
+    renderPage();
+
+    await fill("100", "1000.0005");
+    await user().click(screen.getByRole("button", { name: "Submit offer" }));
+
+    expect(screen.getByText(/at most 3 decimal places/)).toBeInTheDocument();
+    expect(mockedCreateOffer).not.toHaveBeenCalled();
+  });
+});

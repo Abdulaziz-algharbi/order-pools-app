@@ -152,3 +152,40 @@ describe("SupplierOfferDetailPage — images", () => {
     expect(screen.queryByRole("button", { name: "Edit offer" })).not.toBeInTheDocument();
   });
 });
+
+describe("SupplierOfferDetailPage — whole-offer price", () => {
+  it("shows the total price and what one unit comes to", async () => {
+    renderPage();
+
+    expect(await screen.findByText("120.000 OMR")).toBeInTheDocument();
+    expect(screen.getByText("≈ 3.000 OMR per box")).toBeInTheDocument();
+  });
+
+  it("edits and saves the total as totalWholesalePrice", async () => {
+    const dialog = await openEdit();
+    const price = within(dialog).getByLabelText(/Total wholesale price/);
+
+    expect(price).toHaveValue(120);
+    await user().clear(price);
+    await user().type(price, "110");
+    await user().click(within(dialog).getByRole("button", { name: "Save" }));
+
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      "offer-1",
+      expect.objectContaining({ wholeQuantity: 40, totalWholesalePrice: 110 }),
+    );
+    expect(mockedUpdate.mock.calls[0][1]).not.toHaveProperty("price");
+  });
+
+  it("refuses a fractional quantity in the edit", async () => {
+    const dialog = await openEdit();
+    const quantity = within(dialog).getByLabelText(/Whole quantity/);
+
+    await user().clear(quantity);
+    await user().type(quantity, "12.5");
+    await user().click(within(dialog).getByRole("button", { name: "Save" }));
+
+    expect(within(dialog).getByText("Whole quantity: Enter a whole number greater than 0.")).toBeInTheDocument();
+    expect(mockedUpdate).not.toHaveBeenCalled();
+  });
+});

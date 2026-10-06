@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { FieldWrapper, Input, Select, Textarea } from "@/components/ui/Field";
 import { apiErrorMessage } from "@/lib/http";
 import { MAX_OFFER_IMAGES } from "@/lib/cloudinary";
-import { OFFER_PRICE_HINT, omrPriceError } from "@/lib/pool-pricing";
+import { approxUnitPriceBaisa, formatOmr, omrPriceError, wholeQuantityError } from "@/lib/pool-pricing";
 import type { ProductOfferUnit, UploadedImage } from "@/types/domain";
 
 const UNITS: ProductOfferUnit[] = ["PIECE", "KG", "BOX", "CARTON"];
@@ -20,7 +20,7 @@ interface FormState {
   brand: string;
   unit: ProductOfferUnit;
   wholeQuantity: string;
-  price: string;
+  totalWholesalePrice: string;
 }
 
 const initialState: FormState = {
@@ -29,8 +29,20 @@ const initialState: FormState = {
   brand: "",
   unit: "PIECE",
   wholeQuantity: "",
-  price: "",
+  totalWholesalePrice: "",
 };
+
+// The read-only "≈ per unit" guide under the price, once both numbers are
+// valid. The supplier prices the whole offer; this only helps them check it.
+function unitPriceHint(form: FormState): string {
+  const base = "The price for the whole offer, all units together. It's what you're paid once the pool completes.";
+  if (wholeQuantityError(form.wholeQuantity) || omrPriceError(form.totalWholesalePrice)) return base;
+  const perUnit = approxUnitPriceBaisa({
+    wholeQuantity: Number(form.wholeQuantity),
+    totalWholesalePrice: Number(form.totalWholesalePrice),
+  });
+  return `${base} ≈ ${formatOmr(perUnit)} OMR per ${form.unit.toLowerCase()}.`;
+}
 
 export function CreateOfferPage() {
   const navigate = useNavigate();
@@ -52,10 +64,10 @@ export function CreateOfferPage() {
     const next: Partial<Record<keyof FormState, string>> = {};
     if (!form.name.trim()) next.name = "Product name is required.";
     if (!form.description.trim()) next.description = "Description is required.";
-    const quantity = Number(form.wholeQuantity);
-    if (!quantity || quantity <= 0) next.wholeQuantity = "Enter a quantity greater than 0.";
-    const priceError = omrPriceError(form.price);
-    if (priceError) next.price = priceError;
+    const quantityError = wholeQuantityError(form.wholeQuantity);
+    if (quantityError) next.wholeQuantity = quantityError;
+    const priceError = omrPriceError(form.totalWholesalePrice);
+    if (priceError) next.totalWholesalePrice = priceError;
 
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -75,7 +87,7 @@ export function CreateOfferPage() {
         unit: form.unit,
         images,
         wholeQuantity: Number(form.wholeQuantity),
-        price: Number(form.price),
+        totalWholesalePrice: Number(form.totalWholesalePrice),
       });
       navigate("/supplier/offers");
     } catch (err) {
@@ -139,6 +151,7 @@ export function CreateOfferPage() {
                   id="wholeQuantity"
                   type="number"
                   min={1}
+                  step={1}
                   value={form.wholeQuantity}
                   onChange={update("wholeQuantity")}
                   hasError={!!errors.wholeQuantity}
@@ -156,20 +169,20 @@ export function CreateOfferPage() {
             </div>
 
             <FieldWrapper
-              label="Price per unit (OMR)"
-              htmlFor="price"
-              error={errors.price}
-              hint={OFFER_PRICE_HINT}
+              label="Total wholesale price (OMR)"
+              htmlFor="totalWholesalePrice"
+              error={errors.totalWholesalePrice}
+              hint={unitPriceHint(form)}
               required
             >
               <Input
-                id="price"
+                id="totalWholesalePrice"
                 type="number"
                 min={0.001}
                 step="0.001"
-                value={form.price}
-                onChange={update("price")}
-                hasError={!!errors.price}
+                value={form.totalWholesalePrice}
+                onChange={update("totalWholesalePrice")}
+                hasError={!!errors.totalWholesalePrice}
               />
             </FieldWrapper>
 

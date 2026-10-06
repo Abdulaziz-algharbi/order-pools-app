@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   allowedJoinQuantities,
+  approxUnitPriceBaisa,
   belowCostIssue,
   breakEvenMinimumPriceBaisa,
   checkPoolPricing,
   contributionBaisa,
   formatOmr,
+  formatOmrAmount,
   joinQuantityIssue,
   minimumPriceIssue,
   omrPriceError,
   poolTermsErrors,
   toBaisa,
+  wholeQuantityError,
 } from "@/lib/pool-pricing";
 
 // The same cases as the backend's tests/services/pool.pricing.test.ts, so
@@ -225,5 +228,40 @@ describe("omrPriceError", () => {
 
   it.each(["0.0005", "1.2345"])("rejects %s OMR, which is finer than 1 baisa", (input) => {
     expect(omrPriceError(input)).toContain("at least 0.001 OMR");
+  });
+});
+
+describe("formatOmrAmount", () => {
+  it.each([
+    [1000, "1,000.000 OMR"],
+    [0.1, "0.100 OMR"],
+    [12.345, "12.345 OMR"],
+  ])("shows %s as %s", (omr, text) => {
+    expect(formatOmrAmount(omr)).toBe(text);
+  });
+
+  it("shows a dash for a missing amount", () => {
+    expect(formatOmrAmount(undefined)).toBe("—");
+  });
+});
+
+describe("approxUnitPriceBaisa", () => {
+  it("is 10.000 OMR per unit for 100 units costing 1000 OMR", () => {
+    expect(approxUnitPriceBaisa(offer)).toBe(10000);
+  });
+
+  it("rounds to the nearest baisa", () => {
+    // 10 OMR / 3 = 3.3333… OMR
+    expect(approxUnitPriceBaisa({ wholeQuantity: 3, totalWholesalePrice: 10 })).toBe(3333);
+  });
+});
+
+describe("wholeQuantityError", () => {
+  it.each(["1", "40", "100000"])("accepts %s", (input) => {
+    expect(wholeQuantityError(input)).toBeNull();
+  });
+
+  it.each(["", "0", "-3", "12.5"])("refuses %j", (input) => {
+    expect(wholeQuantityError(input)).toBe("Enter a whole number greater than 0.");
   });
 });
