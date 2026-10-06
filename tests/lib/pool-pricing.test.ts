@@ -4,7 +4,7 @@ import {
   approxUnitPriceBaisa,
   belowCostIssue,
   breakEvenMinimumPriceBaisa,
-  checkPoolPricing,
+  checkApproveTerms,
   contributionBaisa,
   formatOmr,
   formatOmrAmount,
@@ -184,38 +184,6 @@ describe("contributionBaisa", () => {
 });
 
 
-// The old per-unit check, until AdminOffersPage moves over (F4).
-describe("checkPoolPricing", () => {
-  it("explains the provider minimum before a price is entered", () => {
-    expect(checkPoolPricing("", "")).toEqual({
-      hint: expect.stringContaining("0.100 OMR or more"),
-    });
-  });
-
-  it("tells the admin the smallest minimum contribution once the price is known", () => {
-    expect(checkPoolPricing("0.001", "")).toEqual({
-      hint: "At 0.001 OMR per unit, set at least 100 so each join reaches the payment provider's 0.100 OMR minimum.",
-    });
-  });
-
-  it("flags a minimum contribution whose cost is under 0.100 OMR, with the minimum that would work", () => {
-    expect(checkPoolPricing("0.001", "10")).toEqual({
-      field: "minimumContribution",
-      error:
-        "A minimum join would cost 0.010 OMR, but the payment provider requires at least 0.100 OMR. Set at least 100.",
-    });
-  });
-
-  it("accepts a minimum that exactly reaches 0.100 OMR and shows what a join costs", () => {
-    expect(checkPoolPricing("0.001", "100")).toEqual({ hint: "Each join costs at least 0.100 OMR." });
-    expect(checkPoolPricing("0.35", "1")).toEqual({ hint: "Each join costs at least 0.350 OMR." });
-  });
-
-  it.each(["0.0005", "1.2345"])("flags a price of %s OMR, which is finer than 1 baisa", (price) => {
-    expect(checkPoolPricing(price, "100")).toMatchObject({ field: "pricePerUnit" });
-  });
-});
-
 describe("omrPriceError", () => {
   it("accepts prices in whole baisa", () => {
     expect(omrPriceError("0.001")).toBeNull();
@@ -263,5 +231,95 @@ describe("wholeQuantityError", () => {
 
   it.each(["", "0", "-3", "12.5"])("refuses %j", (input) => {
     expect(wholeQuantityError(input)).toBe("Enter a whole number greater than 0.");
+  });
+});
+
+describe("checkApproveTerms", () => {
+  it("guides the admin before anything is entered", () => {
+    expect(checkApproveTerms(offer, "", "")).toEqual({
+      minimumContribution: { hint: "How many units each join takes: one lot." },
+      minimumContributionPrice: {
+        hint: "The price of one lot. Enter the minimum contribution to see the lowest allowed price.",
+      },
+    });
+  });
+
+  // R2/R4: the break-even is a placeholder and a label, never a value.
+  it("shows the break-even once the minimum is valid, as placeholder and hint only", () => {
+    const check = checkApproveTerms(offer, "25", "");
+
+    expect(check.minimumContribution).toEqual({ hint: "4 lots of 25." });
+    expect(check.pricePlaceholder).toBe("250.000");
+    expect(check.minimumContributionPrice).toEqual({
+      hint: "Minimum allowed price: 250.000 OMR (the supplier's cost of 25 units).",
+    });
+    expect(check.terms).toBeUndefined();
+  });
+
+  it("says who takes the leftover when the minimum doesn't divide the offer", () => {
+    expect(checkApproveTerms(offer, "30", "").minimumContribution).toEqual({
+      hint: "100 isn't a multiple of 30: the last joiner takes 30 + 10 units.",
+    });
+  });
+
+  it.each([
+    ["2.5", "Enter a whole number greater than 0."],
+    ["0", "Enter a whole number greater than 0."],
+    ["101", "Can't be more than the offer's quantity (100)."],
+  ])("refuses a minimum of %s", (input, error) => {
+    expect(checkApproveTerms(offer, input, "300").minimumContribution).toEqual({ error });
+  });
+
+  it.each([200, 249.999])("refuses %s OMR per 25 units as below cost", (price) => {
+    const check = checkApproveTerms(offer, "25", String(price));
+
+    expect(check.minimumContributionPrice).toEqual({
+      error: "Below 250.000 OMR would put the business below cost for 25 units.",
+    });
+    expect(check.terms).toBeUndefined();
+  });
+
+  it("refuses a lot under the payment provider's minimum", () => {
+    expect(checkApproveTerms(offer, "1", "0.099").minimumContributionPrice).toEqual({
+      error: "Must be at least 0.100 OMR (the payment provider's minimum).",
+    });
+  });
+
+  it("refuses a price finer than 1 baisa", () => {
+    expect(checkApproveTerms(offer, "25", "300.0005").minimumContributionPrice.error).toContain(
+      "at most 3 decimal places",
+    );
+  });
+
+  it("shows the margin and hands over the terms once both are valid", () => {
+    const check = checkApproveTerms(offer, "25", "300");
+
+    expect(check.minimumContributionPrice).toEqual({
+      hint: "+50.000 OMR over cost per 25 units (+200.000 OMR on the whole offer).",
+    });
+    expect(check.terms).toEqual({ minimumContribution: 25, minimumContributionPrice: 300 });
+  });
+
+  it("counts the leftover in the whole-offer margin", () => {
+    // Lots of 30 at 330: 3 lots + 10 leftover at 110 = 1100 - 1000.
+    expect(checkApproveTerms(offer, "30", "330").minimumContributionPrice.hint).toBe(
+      "+30.000 OMR over cost per 30 units (+100.000 OMR on the whole offer).",
+    );
+  });
+
+  it("accepts a price exactly at cost, saying there's no margin", () => {
+    expect(checkApproveTerms(offer, "25", "250")).toMatchObject({
+      minimumContributionPrice: { hint: "At cost: no margin." },
+      terms: { minimumContribution: 25, minimumContributionPrice: 250 },
+    });
+  });
+
+  it("can't judge a price against cost until the minimum is valid", () => {
+    expect(checkApproveTerms(offer, "", "300")).toMatchObject({
+      minimumContributionPrice: {
+        hint: "Enter a valid minimum contribution to check this price against the supplier's cost.",
+      },
+    });
+    expect(checkApproveTerms(offer, "", "300").terms).toBeUndefined();
   });
 });

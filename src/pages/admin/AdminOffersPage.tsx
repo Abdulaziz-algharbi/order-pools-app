@@ -12,13 +12,33 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Spinner";
 import { ListIcon } from "@/components/ui/icons";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber } from "@/lib/utils";
 import { cldUrl } from "@/lib/cloudinary";
-import { apiErrorMessage } from "@/lib/http";
-import { checkPoolPricing } from "@/lib/pool-pricing";
+import { ApiError, apiErrorMessage } from "@/lib/http";
+import { checkApproveTerms, formatOmrAmount } from "@/lib/pool-pricing";
 import type { ProductOffer, ProductOfferStatus } from "@/types/domain";
 
 type OfferDecision = Extract<ProductOfferStatus, "APPROVED" | "NEGOTIATION" | "REJECTED">;
+
+type TermsField = "minimumContribution" | "minimumContributionPrice";
+
+const REQUIRED: Record<TermsField, string> = {
+  minimumContribution: "Enter the minimum contribution.",
+  minimumContributionPrice: "Enter the minimum contribution price.",
+};
+
+// A backend 400 on one of the terms (e.g. the break-even check), keyed by
+// field, so it's shown where the admin typed it.
+function termsErrorsFrom(error: unknown): Partial<Record<TermsField, string>> | null {
+  if (!(error instanceof ApiError) || !error.errors || typeof error.errors !== "object") return null;
+  const errors = error.errors as Record<string, unknown>;
+  const found: Partial<Record<TermsField, string>> = {};
+  for (const field of ["minimumContribution", "minimumContributionPrice"] as const) {
+    const messages = errors[field];
+    if (Array.isArray(messages) && typeof messages[0] === "string") found[field] = messages[0];
+  }
+  return Object.keys(found).length > 0 ? found : null;
+}
 
 export function AdminOffersPage() {
   const { data: offers, isLoading, error, refetch } = useFetch(
@@ -40,10 +60,15 @@ export function AdminOffersPage() {
   const [activeOffer, setActiveOffer] = useState<ProductOffer | null>(null);
   const [decision, setDecision] = useState<OfferDecision | null>(null);
   const [note, setNote] = useState("");
-  const [poolForm, setPoolForm] = useState({ minimumContribution: "", pricePerUnit: "", endDate: "" });
-  // Live check of the pool's price terms against the payment provider's
-  // 0.100 OMR minimum, so the admin sees it while typing.
-  const pricing = checkPoolPricing(poolForm.pricePerUnit, poolForm.minimumContribution);
+  const [poolForm, setPoolForm] = useState({ minimumContribution: "", minimumContributionPrice: "", endDate: "" });
+  // Live check of the pool's terms against the offer (break-even, the
+  // payment provider's minimum, the leftover), as the admin types.
+  const termsCheck = activeOffer
+    ? checkApproveTerms(activeOffer, poolForm.minimumContribution, poolForm.minimumContributionPrice)
+    : null;
+  // "Required" only shows once the admin has tried to submit.
+  const [attempted, setAttempted] = useState(false);
+  const [serverErrors, setServerErrors] = useState<Partial<Record<TermsField, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -52,8 +77,21 @@ export function AdminOffersPage() {
     setDecision(d);
     setNote("");
     setFormError(null);
-    setPoolForm({ minimumContribution: "", pricePerUnit: String(offer.price), endDate: "" });
+    setAttempted(false);
+    setServerErrors({});
+    // Both terms start empty: nothing is filled in for the admin.
+    setPoolForm({ minimumContribution: "", minimumContributionPrice: "", endDate: "" });
   };
+
+  const setTerm = (field: TermsField, value: string) => {
+    setPoolForm((f) => ({ ...f, [field]: value }));
+    setServerErrors((errors) => ({ ...errors, [field]: undefined }));
+  };
+
+  const fieldError = (field: TermsField): string | undefined =>
+    serverErrors[field] ??
+    termsCheck?.[field].error ??
+    (attempted && poolForm[field].trim() === "" ? REQUIRED[field] : undefined);
 
   const close = () => {
     setActiveOffer(null);
@@ -68,27 +106,12 @@ export function AdminOffersPage() {
     }
 
     let endDateIso = "";
+    const terms = termsCheck?.terms;
     if (decision === "APPROVED") {
-      const minContribution = Number(poolForm.minimumContribution);
-      const pricePerUnit = Number(poolForm.pricePerUnit);
-      if (!minContribution || minContribution <= 0) {
-        setFormError("Enter a minimum contribution greater than 0.");
-        return;
-      }
-      if (minContribution > activeOffer.wholeQuantity) {
-        setFormError("Minimum contribution cannot exceed the offer's quantity.");
-        return;
-      }
-      if (!pricePerUnit || pricePerUnit <= 0) {
-        setFormError("Enter a price per unit greater than 0.");
-        return;
-      }
-      // Mirrors the backend's pool rules (pool.schema.ts) — the same check
-      // shown live under the fields (pricing below), so the admin hears
-      // about it before submitting rather than from the server.
-      const pricingError = checkPoolPricing(poolForm.pricePerUnit, poolForm.minimumContribution).error;
-      if (pricingError) {
-        setFormError(pricingError);
+      setAttempted(true);
+      // The same rules the backend applies, shown under the fields.
+      if (!terms) {
+        setFormError(null);
         return;
       }
       if (!poolForm.endDate || new Date(poolForm.endDate).getTime() <= Date.now()) {
@@ -104,9 +127,10 @@ export function AdminOffersPage() {
       const adminComment = note.trim() || undefined;
       if (decision === "APPROVED") {
         // One request: the offer is approved only if its pool is created.
+        // Checked above: an approval never gets here without both terms.
         await approveOffer(activeOffer._id, {
-          minimumContribution: Number(poolForm.minimumContribution),
-          pricePerUnit: Number(poolForm.pricePerUnit),
+          minimumContribution: terms!.minimumContribution,
+          minimumContributionPrice: terms!.minimumContributionPrice,
           endDate: endDateIso,
           adminComment,
         });
@@ -116,7 +140,9 @@ export function AdminOffersPage() {
       close();
       refetch();
     } catch (e) {
-      setFormError(apiErrorMessage(e, "Could not process this decision."));
+      const onFields = decision === "APPROVED" ? termsErrorsFrom(e) : null;
+      if (onFields) setServerErrors(onFields);
+      else setFormError(apiErrorMessage(e, "Could not process this decision."));
     } finally {
       setSubmitting(false);
     }
@@ -197,8 +223,8 @@ export function AdminOffersPage() {
                     <dd className="font-medium text-primary">{formatNumber(o.wholeQuantity)} {o.unit.toLowerCase()}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-slate-400">Price</dt>
-                    <dd className="font-medium text-primary">{formatCurrency(o.price)}</dd>
+                    <dt className="text-xs text-slate-400">Total price</dt>
+                    <dd className="font-medium text-primary">{formatOmrAmount(o.totalWholesalePrice)}</dd>
                   </div>
                   <div>
                     <dt className="text-xs text-slate-400">Submitted</dt>
@@ -254,41 +280,47 @@ export function AdminOffersPage() {
           )}
           {decision === "APPROVED" && activeOffer && (
             <>
-              <div className="grid grid-cols-2 gap-4">
-                <FieldWrapper
-                  label="Minimum contribution"
-                  htmlFor="minimumContribution"
-                  required
-                  error={pricing.field === "minimumContribution" ? pricing.error : undefined}
-                  hint={pricing.field ? undefined : pricing.hint}
-                >
-                  <Input
-                    id="minimumContribution"
-                    type="number"
-                    min={1}
-                    max={activeOffer.wholeQuantity}
-                    value={poolForm.minimumContribution}
-                    hasError={pricing.field === "minimumContribution"}
-                    onChange={(e) => setPoolForm((f) => ({ ...f, minimumContribution: e.target.value }))}
-                  />
-                </FieldWrapper>
-                <FieldWrapper
-                  label="Price per unit (OMR)"
-                  htmlFor="pricePerUnit"
-                  required
-                  error={pricing.field === "pricePerUnit" ? pricing.error : undefined}
-                >
-                  <Input
-                    id="pricePerUnit"
-                    type="number"
-                    min={0.001}
-                    step="0.001"
-                    value={poolForm.pricePerUnit}
-                    hasError={pricing.field === "pricePerUnit"}
-                    onChange={(e) => setPoolForm((f) => ({ ...f, pricePerUnit: e.target.value }))}
-                  />
-                </FieldWrapper>
-              </div>
+              <p className="text-sm text-slate-600">
+                The supplier asks {formatOmrAmount(activeOffer.totalWholesalePrice)} for{" "}
+                {formatNumber(activeOffer.wholeQuantity)} {activeOffer.unit.toLowerCase()}. Retailers join in lots;
+                selling every lot at your price must cover that.
+              </p>
+              <FieldWrapper
+                label="Minimum contribution (units per lot)"
+                htmlFor="minimumContribution"
+                required
+                error={fieldError("minimumContribution")}
+                hint={termsCheck?.minimumContribution.hint}
+              >
+                <Input
+                  id="minimumContribution"
+                  type="number"
+                  min={1}
+                  step={1}
+                  max={activeOffer.wholeQuantity}
+                  value={poolForm.minimumContribution}
+                  hasError={!!fieldError("minimumContribution")}
+                  onChange={(e) => setTerm("minimumContribution", e.target.value)}
+                />
+              </FieldWrapper>
+              <FieldWrapper
+                label="Minimum contribution price (OMR per lot)"
+                htmlFor="minimumContributionPrice"
+                required
+                error={fieldError("minimumContributionPrice")}
+                hint={termsCheck?.minimumContributionPrice.hint}
+              >
+                <Input
+                  id="minimumContributionPrice"
+                  type="number"
+                  min={0.1}
+                  step="0.001"
+                  placeholder={termsCheck?.pricePlaceholder}
+                  value={poolForm.minimumContributionPrice}
+                  hasError={!!fieldError("minimumContributionPrice")}
+                  onChange={(e) => setTerm("minimumContributionPrice", e.target.value)}
+                />
+              </FieldWrapper>
               <FieldWrapper label="Pool deadline" htmlFor="endDate" required>
                 <Input
                   id="endDate"

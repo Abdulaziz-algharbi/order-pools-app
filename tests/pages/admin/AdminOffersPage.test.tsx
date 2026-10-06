@@ -4,7 +4,8 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminOffersPage } from "@/pages/admin/AdminOffersPage";
 import { AdminOffersHistoryPage } from "@/pages/admin/AdminOffersHistoryPage";
-import { getUserById, listOffers } from "@/services/api";
+import { approveOffer, getUserById, listOffers } from "@/services/api";
+import { ApiError } from "@/lib/http";
 import type { ProductOffer } from "@/types/domain";
 
 vi.mock("@/services/api", () => ({
@@ -101,5 +102,115 @@ describe("AdminOffersHistoryPage — offer images", () => {
     const covers = await screen.findAllByAltText("Dates 5kg");
     expect(covers[0]).toHaveAttribute("src", expect.stringContaining("/orderpools/dev/offers/s1/cover"));
     expect(screen.getAllByRole("img", { name: "No product image" }).length).toBeGreaterThan(0);
+  });
+});
+
+// Reference scenario (order-pools-backend/docs/pricing-model-plan.md):
+// 100 units for 1000 OMR, so 25 units cost the supplier 250 OMR.
+describe("AdminOffersPage — approving with lot terms", () => {
+  const mockedApprove = vi.mocked(approveOffer);
+  const user = () => userEvent.setup();
+
+  async function openAccept() {
+    mockedListOffers.mockResolvedValue([makeOffer({ wholeQuantity: 100, totalWholesalePrice: 1000 })]);
+    renderPage(AdminOffersPage);
+    await user().click(await screen.findByRole("button", { name: "Accept" }));
+    return screen.getByRole("dialog", { name: "Accept this offer?" });
+  }
+
+  const minimumField = (dialog: HTMLElement) => within(dialog).getByLabelText(/Minimum contribution \(units per lot\)/);
+  const priceField = (dialog: HTMLElement) => within(dialog).getByLabelText(/Minimum contribution price/);
+
+  it("shows the offer's total price in the review list", async () => {
+    mockedListOffers.mockResolvedValue([makeOffer({ wholeQuantity: 100, totalWholesalePrice: 1000 })]);
+    renderPage(AdminOffersPage);
+
+    expect(await screen.findByText("1,000.000 OMR")).toBeInTheDocument();
+  });
+
+  // R2/R4: nothing is filled in; the break-even is only a placeholder.
+  it("shows the break-even as the price's placeholder, never its value", async () => {
+    const dialog = await openAccept();
+
+    expect(priceField(dialog)).toHaveValue(null);
+    await user().type(minimumField(dialog), "25");
+
+    expect(priceField(dialog)).toHaveAttribute("placeholder", "250.000");
+    expect(priceField(dialog)).toHaveValue(null);
+    expect(within(dialog).getByText(/Minimum allowed price: 250\.000 OMR/)).toBeInTheDocument();
+  });
+
+  it("says the price is required when submitted empty", async () => {
+    const dialog = await openAccept();
+
+    await user().type(minimumField(dialog), "25");
+    await user().click(within(dialog).getByRole("button", { name: "Accept & create pool" }));
+
+    expect(within(dialog).getByText("Enter the minimum contribution price.")).toBeInTheDocument();
+    expect(mockedApprove).not.toHaveBeenCalled();
+  });
+
+  it("warns live when the price would put the business below cost", async () => {
+    const dialog = await openAccept();
+
+    await user().type(minimumField(dialog), "25");
+    await user().type(priceField(dialog), "200");
+
+    expect(
+      within(dialog).getByText("Below 250.000 OMR would put the business below cost for 25 units."),
+    ).toBeInTheDocument();
+    await user().click(within(dialog).getByRole("button", { name: "Accept & create pool" }));
+    expect(mockedApprove).not.toHaveBeenCalled();
+  });
+
+  it("shows who takes the leftover, as information rather than an error", async () => {
+    const dialog = await openAccept();
+
+    await user().type(minimumField(dialog), "30");
+
+    expect(
+      within(dialog).getByText("100 isn't a multiple of 30: the last joiner takes 30 + 10 units."),
+    ).toBeInTheDocument();
+    // FieldWrapper shows an error in place of the hint, so a hint means no error.
+  });
+
+  it("shows the margin and approves with the lot terms", async () => {
+    mockedApprove.mockResolvedValue({ offer: {}, pool: {} } as never);
+    const dialog = await openAccept();
+
+    await user().type(minimumField(dialog), "25");
+    await user().type(priceField(dialog), "300");
+    expect(
+      within(dialog).getByText("+50.000 OMR over cost per 25 units (+200.000 OMR on the whole offer)."),
+    ).toBeInTheDocument();
+    await user().type(within(dialog).getByLabelText(/Pool deadline/), "2030-12-31");
+    await user().click(within(dialog).getByRole("button", { name: "Accept & create pool" }));
+
+    expect(mockedApprove).toHaveBeenCalledWith("offer-1", {
+      minimumContribution: 25,
+      minimumContributionPrice: 300,
+      endDate: new Date("2030-12-31").toISOString(),
+      adminComment: undefined,
+    });
+  });
+
+  it("shows the backend's refusal on the field it's about", async () => {
+    mockedApprove.mockRejectedValue(
+      new ApiError("Validation Error", 400, {
+        minimumContributionPrice: [
+          "minimumContributionPrice (300.000 OMR) cannot be below the supplier-cost break-even of 400.000 OMR for 25 units",
+        ],
+      }),
+    );
+    const dialog = await openAccept();
+
+    await user().type(minimumField(dialog), "25");
+    await user().type(priceField(dialog), "300");
+    await user().type(within(dialog).getByLabelText(/Pool deadline/), "2030-12-31");
+    await user().click(within(dialog).getByRole("button", { name: "Accept & create pool" }));
+
+    // In the price field's place for an error (instead of the margin hint).
+    expect(await within(dialog).findByText(/break-even of 400\.000 OMR/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/over cost per 25 units/)).not.toBeInTheDocument();
   });
 });

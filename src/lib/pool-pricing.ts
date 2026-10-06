@@ -184,6 +184,80 @@ export function omrPriceError(priceInput: string): string | null {
   return null;
 }
 
+/** What to show under one field: a problem, or a guide. */
+export interface FieldGuidance {
+  error?: string;
+  hint?: string;
+}
+
+export interface ApproveTermsCheck {
+  minimumContribution: FieldGuidance;
+  minimumContributionPrice: FieldGuidance;
+  /** The break-even price, once the minimum is valid — a placeholder only, never a value. */
+  pricePlaceholder?: string;
+  /** Both terms, once they pass every check: what the approve form sends. */
+  terms?: PoolTerms;
+}
+
+/**
+ * Live guidance for the admin's pool terms as they type, with the same
+ * rules the backend applies on approve (poolTermsErrors, minimumPriceIssue)
+ * in the admin's words. Nothing is filled in for them: the break-even is
+ * only a placeholder (R2, R4).
+ */
+export function checkApproveTerms(offer: OfferTerms, minimumInput: string, priceInput: string): ApproveTermsCheck {
+  const check: ApproveTermsCheck = { minimumContribution: {}, minimumContributionPrice: {} };
+
+  let minimum: number | null = null;
+  if (minimumInput.trim() === "") {
+    check.minimumContribution.hint = "How many units each join takes: one lot.";
+  } else if (wholeQuantityError(minimumInput)) {
+    check.minimumContribution.error = wholeQuantityError(minimumInput)!;
+  } else if (Number(minimumInput) > offer.wholeQuantity) {
+    check.minimumContribution.error = `Can't be more than the offer's quantity (${formatNumber(offer.wholeQuantity)}).`;
+  } else {
+    minimum = Number(minimumInput);
+    const lots = Math.floor(offer.wholeQuantity / minimum);
+    const leftover = offer.wholeQuantity % minimum;
+    check.minimumContribution.hint =
+      leftover === 0
+        ? `${formatNumber(lots)} lots of ${formatNumber(minimum)}.`
+        : `${formatNumber(offer.wholeQuantity)} isn't a multiple of ${formatNumber(minimum)}: the last joiner takes ${formatNumber(minimum)} + ${formatNumber(leftover)} units.`;
+  }
+
+  const breakEven = minimum === null ? null : breakEvenMinimumPriceBaisa(offer, minimum);
+  if (breakEven !== null) check.pricePlaceholder = formatOmr(breakEven);
+
+  const price = check.minimumContributionPrice;
+  if (priceInput.trim() === "") {
+    price.hint =
+      breakEven === null
+        ? "The price of one lot. Enter the minimum contribution to see the lowest allowed price."
+        : `Minimum allowed price: ${formatOmr(breakEven)} OMR (the supplier's cost of ${formatNumber(minimum!)} units).`;
+  } else if (omrPriceError(priceInput)) {
+    price.error = omrPriceError(priceInput)!;
+  } else if (minimumPriceIssue(Number(priceInput))) {
+    price.error = `Must be at least ${formatOmr(THAWANI_MIN_ORDER_BAISA)} OMR (the payment provider's minimum).`;
+  } else if (breakEven !== null && belowCostIssue(offer, minimum!, Number(priceInput))) {
+    price.error = `Below ${formatOmr(breakEven)} OMR would put the business below cost for ${formatNumber(minimum!)} units.`;
+  } else if (breakEven !== null) {
+    const priceBaisa = toBaisa(Number(priceInput));
+    const perLot = priceBaisa - breakEven;
+    const wholeOffer =
+      contributionBaisa({ minimumContribution: minimum!, minimumContributionPrice: Number(priceInput) }, offer.wholeQuantity) -
+      toBaisa(offer.totalWholesalePrice);
+    price.hint =
+      perLot === 0
+        ? "At cost: no margin."
+        : `+${formatOmr(perLot)} OMR over cost per ${formatNumber(minimum!)} units (+${formatOmr(wholeOffer)} OMR on the whole offer).`;
+    check.terms = { minimumContribution: minimum!, minimumContributionPrice: Number(priceInput) };
+  } else {
+    price.hint = "Enter a valid minimum contribution to check this price against the supplier's cost.";
+  }
+
+  return check;
+}
+
 /** Problem with a quantity typed into a form, or null: quantities are whole numbers (the backend's unitQuantity). */
 export function wholeQuantityError(quantityInput: string): string | null {
   const quantity = Number(quantityInput);
@@ -191,56 +265,4 @@ export function wholeQuantityError(quantityInput: string): string | null {
     return "Enter a whole number greater than 0.";
   }
   return null;
-}
-
-// ---------------------------------------------------------------------------
-// The old per-unit pricing, until the pages move over (F3, F4); removed in F9.
-// ---------------------------------------------------------------------------
-
-/** @deprecated The old per-unit pricing; CreateOfferPage stops using it in F3. */
-export const OFFER_PRICE_HINT =
-  "Retailers pay at least 0.100 OMR per order (the payment provider's minimum), so a low unit price means each retailer has to buy a larger minimum quantity.";
-
-export interface PoolPricingCheck {
-  /** Field the problem belongs to, if any. */
-  field?: "pricePerUnit" | "minimumContribution";
-  /** A problem that blocks creating the pool. */
-  error?: string;
-  /** Guidance to show when nothing is wrong (or not yet filled in). */
-  hint?: string;
-}
-
-/**
- * @deprecated The old per-unit pricing (pricePerUnit × minimumContribution);
- * AdminOffersPage stops using it in F4.
- */
-export function checkPoolPricing(pricePerUnitInput: string, minimumContributionInput: string): PoolPricingCheck {
-  const price = Number(pricePerUnitInput);
-  if (pricePerUnitInput.trim() === "" || !(price > 0)) {
-    return {
-      hint: "The payment provider only accepts payments of 0.100 OMR or more, so the minimum contribution has to cost at least that.",
-    };
-  }
-
-  const priceError = omrPriceError(pricePerUnitInput);
-  if (priceError) return { field: "pricePerUnit", error: priceError };
-  const unitBaisa = Math.round(price * 1000);
-
-  const required = Math.ceil(THAWANI_MIN_ORDER_BAISA / unitBaisa);
-  const minimum = Number(minimumContributionInput);
-  if (minimumContributionInput.trim() === "" || !(minimum > 0)) {
-    return {
-      hint: `At ${price} OMR per unit, set at least ${formatNumber(required)} so each join reaches the payment provider's 0.100 OMR minimum.`,
-    };
-  }
-
-  const perJoin = ((unitBaisa * minimum) / 1000).toFixed(3);
-  if (unitBaisa * minimum < THAWANI_MIN_ORDER_BAISA) {
-    return {
-      field: "minimumContribution",
-      error: `A minimum join would cost ${perJoin} OMR, but the payment provider requires at least 0.100 OMR. Set at least ${formatNumber(required)}.`,
-    };
-  }
-
-  return { hint: `Each join costs at least ${perJoin} OMR.` };
 }
