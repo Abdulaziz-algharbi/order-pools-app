@@ -170,6 +170,7 @@ describe("AdminOffersPage — approving with lot terms", () => {
     expect(
       within(dialog).getByText("Below 250.000 OMR would put the business below cost for 25 units."),
     ).toBeInTheDocument();
+    expect(priceField(dialog)).toHaveAttribute("aria-invalid", "true");
     await user().click(within(dialog).getByRole("button", { name: "Accept & create pool" }));
     expect(mockedApprove).not.toHaveBeenCalled();
   });
@@ -182,7 +183,10 @@ describe("AdminOffersPage — approving with lot terms", () => {
     expect(
       within(dialog).getByText("100 isn't a multiple of 30: the last joiner takes 30 + 10 units."),
     ).toBeInTheDocument();
-    // FieldWrapper shows an error in place of the hint, so a hint means no error.
+    expect(minimumField(dialog)).not.toHaveAttribute("aria-invalid");
+    expect(minimumField(dialog)).toHaveAccessibleDescription(
+      "100 isn't a multiple of 30: the last joiner takes 30 + 10 units.",
+    );
   });
 
   it("shows the margin and approves with the lot terms", async () => {
@@ -220,8 +224,8 @@ describe("AdminOffersPage — approving with lot terms", () => {
     await user().type(within(dialog).getByLabelText(/Pool deadline/), "2030-12-31");
     await user().click(within(dialog).getByRole("button", { name: "Accept & create pool" }));
 
-    // In the price field's place for an error (instead of the margin hint).
     expect(await within(dialog).findByText(/break-even of 400\.000 OMR/)).toBeInTheDocument();
-    expect(within(dialog).queryByText(/over cost per 25 units/)).not.toBeInTheDocument();
+    expect(priceField(dialog)).toHaveAttribute("aria-invalid", "true");
+    expect(priceField(dialog)).toHaveAccessibleDescription(expect.stringContaining("break-even of 400.000 OMR"));
   });
 });
