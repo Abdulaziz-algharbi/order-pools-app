@@ -4,7 +4,8 @@ import { ImageGallery } from "@/components/domain/ImageGallery";
 import { Card, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { daysUntil, formatCurrency, formatDate, formatNumber, poolProgress, poolQuantities } from "@/lib/utils";
+import { daysUntil, formatDate, formatNumber, poolProgress, poolQuantities } from "@/lib/utils";
+import { formatOmrAmount } from "@/lib/pool-pricing";
 
 /** A display-only participant row — the caller resolves whatever identity it can (or none, if it has no read access to who joined). */
 export interface PoolParticipantRow {
@@ -16,10 +17,12 @@ export interface PoolParticipantRow {
 interface PoolOverviewProps {
   pool: Pool;
   participants?: PoolParticipantRow[];
+  /** The admin's view: say that the pricing can't be changed any more. */
+  pricingLocked?: boolean;
   children?: ReactNode;
 }
 
-export function PoolOverview({ pool, participants, children }: PoolOverviewProps) {
+export function PoolOverview({ pool, participants, pricingLocked, children }: PoolOverviewProps) {
   const { paid: collected, awaitingPayment } = poolQuantities(pool);
   const progress = poolProgress(collected, pool.targetQuantity);
   const daysLeft = daysUntil(pool.endDate);
@@ -46,14 +49,12 @@ export function PoolOverview({ pool, participants, children }: PoolOverviewProps
 
         <div className="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-4">
           <div>
-            <p className="text-xs text-slate-400">Price</p>
-            <p className="font-heading text-lg font-semibold text-primary">
-              {formatCurrency(pool.pricePerUnit)}
-              <span className="text-sm font-normal text-slate-400">/{pool.unit.toLowerCase()}</span>
-            </p>
+            <p className="text-xs text-slate-400">Price per lot</p>
+            <p className="font-heading text-lg font-semibold text-primary">{formatOmrAmount(pool.minimumContributionPrice)}</p>
+            {pricingLocked && <p className="text-xs text-slate-500">Locked once the pool exists</p>}
           </div>
           <div>
-            <p className="text-xs text-slate-400">Minimum contribution</p>
+            <p className="text-xs text-slate-400">Lot (minimum contribution)</p>
             <p className="font-heading text-lg font-semibold text-primary">
               {formatNumber(pool.minimumContribution)} {pool.unit.toLowerCase()}
             </p>

@@ -10,7 +10,8 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { LinkButton } from "@/components/ui/LinkButton";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { canLeaveJoin, joinBadgeStatus, formatCurrency, formatDate, formatNumber, poolProgress } from "@/lib/utils";
+import { canLeaveJoin, joinBadgeStatus, formatDate, formatNumber, poolProgress } from "@/lib/utils";
+import { formatOmrAmount, poolAmount } from "@/lib/pool-pricing";
 import type { Payment, Pool, PoolParticipant } from "@/types/domain";
 
 interface JoinRow {
@@ -96,7 +97,7 @@ export function MyJoinsPage() {
       header: "My contribution",
       render: (r) => `${formatNumber(r.participant.quantity)} ${r.pool.unit.toLowerCase()}`,
     },
-    { key: "total", header: "Total", render: (r) => formatCurrency(r.participant.quantity * r.pool.pricePerUnit) },
+    { key: "total", header: "Total", render: (r) => formatOmrAmount(poolAmount(r.pool, r.participant.quantity)) },
     {
       key: "progress",
       header: "Pool progress",

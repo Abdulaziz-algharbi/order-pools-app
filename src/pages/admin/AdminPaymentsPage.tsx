@@ -6,7 +6,8 @@ import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { formatOmrAmount } from "@/lib/pool-pricing";
 import type { Payment } from "@/types/domain";
 
 // Every payment platform-wide (listPayments == listMyPayments, but ADMIN
@@ -60,7 +61,7 @@ export function AdminPaymentsPage() {
       render: (p) => userNames.get(p.user_ref) ?? "…",
     },
     { key: "pool", header: "Pool", render: (p) => poolName(p.pool_ref), hideOnMobileCard: true },
-    { key: "amount", header: "Amount", render: (p) => formatCurrency(p.amount) },
+    { key: "amount", header: "Amount", render: (p) => formatOmrAmount(p.amount) },
     { key: "status", header: "Status", render: (p) => <StatusBadge status={p.status} /> },
     { key: "since", header: "Since", render: (p) => formatDate(p.updatedAt) },
     {

@@ -79,3 +79,12 @@ describe("MyJoinsPage — withdrawn joins", () => {
     expect(mockedApi.withdrawParticipant).toHaveBeenCalledWith("participant-1");
   });
 });
+
+describe("MyJoinsPage — totals", () => {
+  // Fixture: lots of 5 at 60 OMR; the join takes 10 (two lots).
+  it("shows what each join costs in OMR", async () => {
+    await renderPage();
+
+    expect(within(tableRow("Basmati Rice 25kg")).getByText("120.000 OMR")).toBeInTheDocument();
+  });
+});

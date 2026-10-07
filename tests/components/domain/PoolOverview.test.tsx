@@ -32,3 +32,21 @@ describe("PoolOverview images", () => {
     expect(screen.getByText("Premium long grain")).toBeInTheDocument();
   });
 });
+
+describe("PoolOverview pricing", () => {
+  it("shows the price per lot and the lot size", () => {
+    render(<PoolOverview pool={makePool({ minimumContribution: 25, minimumContributionPrice: 300, unit: "BOX" })} />);
+
+    expect(screen.getByText("Price per lot")).toBeInTheDocument();
+    expect(screen.getByText("300.000 OMR")).toBeInTheDocument();
+    expect(screen.getByText("25 box")).toBeInTheDocument();
+    expect(screen.queryByText("Locked once the pool exists")).not.toBeInTheDocument();
+  });
+
+  // The admin's view: the backend refuses any change to a pool's pricing.
+  it("says the pricing is locked when asked to", () => {
+    render(<PoolOverview pool={makePool()} pricingLocked />);
+
+    expect(screen.getByText("Locked once the pool exists")).toBeInTheDocument();
+  });
+});

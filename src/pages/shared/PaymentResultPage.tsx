@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { LinkButton } from "@/components/ui/LinkButton";
 import { PageSpinner } from "@/components/ui/Spinner";
 import { CheckIcon, AlertIcon } from "@/components/ui/icons";
-import { formatCurrency } from "@/lib/utils";
+import { formatOmrAmount } from "@/lib/pool-pricing";
 import { ApiError } from "@/lib/http";
 import type { Payment } from "@/types/domain";
 
@@ -65,11 +65,11 @@ export function PaymentResultPage() {
             {error
               ? error
               : isSuccess && payment
-                ? `Your contribution of ${formatCurrency(payment.amount)} has been confirmed.`
+                ? `Your contribution of ${formatOmrAmount(payment.amount)} has been confirmed.`
                 : isPending
                   ? "We're still waiting for confirmation from the payment provider. This can take a moment — check My Joins shortly."
                   : isLateRefund && payment
-                    ? `Your payment of ${formatCurrency(payment.amount)} arrived after your reservation in this pool had expired, so you weren't added and it is being refunded.`
+                    ? `Your payment of ${formatOmrAmount(payment.amount)} arrived after your reservation in this pool had expired, so you weren't added and it is being refunded.`
                     : "This payment was cancelled or could not be completed. No charge was made."}
           </p>
           <LinkButton to="/retailer/joins" className="w-full">

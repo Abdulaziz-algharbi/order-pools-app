@@ -5,20 +5,6 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
-
-// Guards against a missing/non-numeric value rendering as the literal
-// string "NaN" — can happen with a record from before a now-required
-// field existed on the backend schema (e.g. a legacy Pool missing
-// targetQuantity). Every call site gets this for free rather than each
-// one needing its own fallback.
-export function formatCurrency(value: number | undefined | null): string {
-  return Number.isFinite(value) ? currencyFormatter.format(value as number) : "—";
-}
-
 const numberFormatter = new Intl.NumberFormat("en-US");
 
 export function formatNumber(value: number | undefined | null): string {

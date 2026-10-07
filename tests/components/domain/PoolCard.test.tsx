@@ -25,3 +25,12 @@ describe("PoolCard cover image", () => {
     expect(screen.queryByAltText("Basmati Rice 25kg")).not.toBeInTheDocument();
   });
 });
+
+describe("PoolCard price", () => {
+  it("shows the lot price and the lot size, in OMR", () => {
+    render(<PoolCard pool={makePool({ minimumContribution: 25, minimumContributionPrice: 300, unit: "CARTON" })} />);
+
+    expect(screen.getByText("300.000 OMR")).toBeInTheDocument();
+    expect(screen.getByText(/\/ 25 carton/)).toBeInTheDocument();
+  });
+});

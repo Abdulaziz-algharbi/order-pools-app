@@ -49,10 +49,19 @@ const omrFormatter = new Intl.NumberFormat("en-US", { minimumFractionDigits: 3, 
 
 /**
  * An OMR amount for display, grouped and with its 3 decimals:
- * 1000 -> "1,000.000 OMR". "—" for a missing value, like formatCurrency.
+ * 1000 -> "1,000.000 OMR". "—" for a missing value.
  */
 export function formatOmrAmount(omr: number | undefined | null): string {
   return Number.isFinite(omr) ? `${omrFormatter.format(toBaisa(omr as number) / 1000)} OMR` : "—";
+}
+
+/**
+ * What `quantity` units of a pool come to, in OMR — what joins of that much
+ * were charged. Joins add up exactly: every join but the take-all is whole
+ * lots, so only that one can carry the leftover.
+ */
+export function poolAmount(pool: PoolTerms, quantity: number): number {
+  return contributionBaisa(pool, quantity) / 1000;
 }
 
 /**

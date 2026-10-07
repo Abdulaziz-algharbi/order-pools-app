@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { FieldWrapper, Input, Select } from "@/components/ui/Field";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { formatOmrAmount } from "@/lib/pool-pricing";
 import { ApiError } from "@/lib/http";
 import type { SupplierPayout, SupplierPayoutStatus } from "@/types/domain";
 
@@ -55,7 +56,7 @@ export function AdminPayoutsPage() {
 
   const columns: Column<SupplierPayout>[] = [
     { key: "pool", header: "Pool", render: (p) => poolName(p.pool_ref) },
-    { key: "amount", header: "Amount owed", render: (p) => formatCurrency(p.amount) },
+    { key: "amount", header: "Amount owed", render: (p) => formatOmrAmount(p.amount) },
     { key: "status", header: "Status", render: (p) => <StatusBadge status={p.status} /> },
     {
       key: "reference",
@@ -100,7 +101,7 @@ export function AdminPayoutsPage() {
         open={!!target}
         onClose={() => !saving && setTarget(null)}
         title="Record payout"
-        description={target ? `${poolName(target.pool_ref)} — ${formatCurrency(target.amount)} owed.` : ""}
+        description={target ? `${poolName(target.pool_ref)} — ${formatOmrAmount(target.amount)} owed.` : ""}
         footer={
           <>
             <Button variant="outline" onClick={() => setTarget(null)} disabled={saving}>

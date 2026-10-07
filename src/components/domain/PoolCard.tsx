@@ -5,7 +5,8 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { PackageIcon } from "@/components/ui/icons";
 import { cldUrl } from "@/lib/cloudinary";
-import { formatCurrency, formatDate, formatNumber, poolProgress, poolQuantities, daysUntil } from "@/lib/utils";
+import { formatDate, formatNumber, poolProgress, poolQuantities, daysUntil } from "@/lib/utils";
+import { formatOmrAmount } from "@/lib/pool-pricing";
 import { cn } from "@/lib/utils";
 
 interface PoolCardProps {
@@ -53,8 +54,11 @@ export function PoolCard({ pool, action, className }: PoolCardProps) {
       <div className="space-y-4 p-5">
         <div className="flex items-baseline justify-between">
           <span className="font-heading text-xl font-semibold text-primary">
-            {formatCurrency(pool.pricePerUnit)}
-            <span className="text-sm font-normal text-slate-400"> / {pool.unit.toLowerCase()}</span>
+            {formatOmrAmount(pool.minimumContributionPrice)}
+            <span className="text-sm font-normal text-slate-400">
+              {" "}
+              / {formatNumber(pool.minimumContribution)} {pool.unit.toLowerCase()}
+            </span>
           </span>
           {isOpen && (
             <span className={cn("text-xs font-medium", daysLeft <= 2 ? "text-red-600" : "text-slate-500")}>

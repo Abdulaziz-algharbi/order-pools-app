@@ -5,7 +5,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber } from "@/lib/utils";
+import { formatOmrAmount, poolAmount } from "@/lib/pool-pricing";
 import type { Pool } from "@/types/domain";
 
 export function SupplierPoolHistoryPage() {
@@ -37,7 +38,7 @@ export function SupplierPoolHistoryPage() {
     {
       key: "revenue",
       header: "Total value",
-      render: (p) => formatCurrency((p.targetQuantity - p.currentQuantity) * p.pricePerUnit),
+      render: (p) => formatOmrAmount(poolAmount(p, p.targetQuantity - p.currentQuantity)),
     },
     { key: "participants", header: "Retailers", render: (p) => p.participantCount },
     { key: "closed", header: "Deadline", render: (p) => formatDate(p.endDate) },

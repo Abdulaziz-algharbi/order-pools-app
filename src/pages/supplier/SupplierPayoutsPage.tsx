@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { formatOmrAmount } from "@/lib/pool-pricing";
 import type { SupplierPayout } from "@/types/domain";
 
 // Role-scoped server-side to payouts for pools built from this supplier's
@@ -18,7 +19,7 @@ export function SupplierPayoutsPage() {
 
   const columns: Column<SupplierPayout>[] = [
     { key: "pool", header: "Pool", render: (p) => poolName(p.pool_ref) },
-    { key: "amount", header: "Amount owed", render: (p) => formatCurrency(p.amount) },
+    { key: "amount", header: "Amount owed", render: (p) => formatOmrAmount(p.amount) },
     { key: "status", header: "Status", render: (p) => <StatusBadge status={p.status} /> },
     {
       key: "reference",

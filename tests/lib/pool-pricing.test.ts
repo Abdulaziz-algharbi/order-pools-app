@@ -11,6 +11,7 @@ import {
   joinQuantityIssue,
   minimumPriceIssue,
   omrPriceError,
+  poolAmount,
   poolTermsErrors,
   toBaisa,
   wholeQuantityError,
@@ -321,5 +322,20 @@ describe("checkApproveTerms", () => {
       },
     });
     expect(checkApproveTerms(offer, "", "300").terms).toBeUndefined();
+  });
+});
+
+describe("poolAmount", () => {
+  it("is what joins of that much were charged, in OMR", () => {
+    expect(poolAmount({ minimumContribution: 25, minimumContributionPrice: 300 }, 50)).toBe(600);
+  });
+
+  // Every join but the take-all is whole lots, so the sum of joins of 30,
+  // 30 and the take-all of 40 equals the amount for all 100.
+  it("adds up joins exactly, the leftover included", () => {
+    const pool = { minimumContribution: 30, minimumContributionPrice: 300 };
+
+    expect(poolAmount(pool, 30) + poolAmount(pool, 30) + poolAmount(pool, 40)).toBe(poolAmount(pool, 100));
+    expect(poolAmount(pool, 100)).toBe(1000);
   });
 });

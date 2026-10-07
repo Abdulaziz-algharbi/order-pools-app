@@ -107,7 +107,7 @@ export function AdminPoolDetailPage() {
         &larr; Back to pools
       </Link>
 
-      <PoolOverview pool={pool} participants={rowsLoading ? undefined : rows}>
+      <PoolOverview pool={pool} participants={rowsLoading ? undefined : rows} pricingLocked>
         {rowsLoading && <Spinner className="h-5 w-5" />}
 
         {delivery && (
