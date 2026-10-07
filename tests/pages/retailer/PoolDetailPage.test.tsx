@@ -31,7 +31,6 @@ const openPool: Pool = {
   currentQuantity: 40,
   minimumContribution: 5,
   minimumContributionPrice: 60,
-  pricePerUnit: 12,
   startDate: "2026-09-01T00:00:00.000Z",
   endDate: "2026-10-01T00:00:00.000Z",
   status: "OPEN",

@@ -101,12 +101,6 @@ export interface ProductOffer {
   wholeQuantity: number;
   /** OMR for the whole offer (all `wholeQuantity` units): what the supplier is paid. */
   totalWholesalePrice: number;
-  /**
-   * @deprecated The backend no longer sends it (renamed to
-   * `totalWholesalePrice`, the whole offer's price). Kept only until every
-   * page has moved over — see order-pools-backend/docs/pricing-model-plan.md.
-   */
-  price: number;
   status: ProductOfferStatus;
   adminComment?: string | null;
   createdAt: string;
@@ -151,12 +145,6 @@ export interface Pool {
   minimumContribution: number;
   /** OMR per lot of `minimumContribution` units. Locked once the pool exists. */
   minimumContributionPrice: number;
-  /**
-   * @deprecated The backend no longer sends it: pools are priced per lot
-   * (`minimumContributionPrice`). Kept only until every page has moved
-   * over — see order-pools-backend/docs/pricing-model-plan.md.
-   */
-  pricePerUnit: number;
   startDate: string;
   endDate: string;
   status: PoolStatus;

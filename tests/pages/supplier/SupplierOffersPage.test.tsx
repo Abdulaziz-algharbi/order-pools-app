@@ -19,7 +19,6 @@ const offer: ProductOffer = {
   images: [],
   wholeQuantity: 100,
   totalWholesalePrice: 1000,
-  price: 10,
   status: "PENDING",
   createdAt: "2026-10-01T00:00:00.000Z",
   updatedAt: "2026-10-01T00:00:00.000Z",

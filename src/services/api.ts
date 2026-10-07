@@ -405,9 +405,7 @@ export interface CreateOfferInput {
   images?: UploadedImage[];
   wholeQuantity: number;
   /** OMR for the whole offer. */
-  totalWholesalePrice?: number;
-  /** @deprecated Refused by the backend; replaced by `totalWholesalePrice`. Until CreateOfferPage moves over. */
-  price?: number;
+  totalWholesalePrice: number;
 }
 
 export async function createOffer(input: CreateOfferInput): Promise<ProductOffer> {
@@ -425,8 +423,6 @@ export interface UpdateOwnOfferInput {
   wholeQuantity?: number;
   /** OMR for the whole offer. */
   totalWholesalePrice?: number;
-  /** @deprecated Refused by the backend; replaced by `totalWholesalePrice`. Until SupplierOfferDetailPage moves over. */
-  price?: number;
 }
 
 // The owning SUPPLIER's edit surface — product details/commercial terms.
@@ -447,9 +443,7 @@ export async function reviewOffer(
 export interface ApproveOfferInput {
   minimumContribution: number;
   /** OMR per lot of `minimumContribution` units; must cover the supplier's cost of a lot. */
-  minimumContributionPrice?: number;
-  /** @deprecated Refused by the backend; replaced by `minimumContributionPrice`. Until AdminOffersPage moves over. */
-  pricePerUnit?: number;
+  minimumContributionPrice: number;
   startDate?: string;
   endDate: string;
   adminComment?: string;
