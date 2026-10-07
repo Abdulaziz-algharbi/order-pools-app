@@ -5,7 +5,8 @@ import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { PackageIcon } from "@/components/ui/icons";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber } from "@/lib/utils";
+import { formatOmrAmount } from "@/lib/pool-pricing";
 import { cldUrl } from "@/lib/cloudinary";
 import type { ProductOffer } from "@/types/domain";
 
@@ -41,7 +42,7 @@ export function AdminOffersHistoryPage() {
       ),
     },
     { key: "quantity", header: "Quantity", render: (o) => `${formatNumber(o.wholeQuantity)} ${o.unit.toLowerCase()}` },
-    { key: "price", header: "Price", render: (o) => formatCurrency(o.price) },
+    { key: "price", header: "Total price", render: (o) => formatOmrAmount(o.totalWholesalePrice) },
     { key: "updated", header: "Updated", render: (o) => formatDate(o.updatedAt) },
     { key: "status", header: "Status", render: (o) => <StatusBadge status={o.status} domain="offer" /> },
   ];

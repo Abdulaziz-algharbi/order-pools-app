@@ -91,6 +91,18 @@ describe("AdminOffersPage — offer images", () => {
   });
 });
 
+describe("AdminOffersHistoryPage — total price", () => {
+  it("lists each offer's whole-offer price in OMR", async () => {
+    mockedListOffers.mockResolvedValue([
+      makeOffer({ _id: "o1", status: "APPROVED", wholeQuantity: 100, totalWholesalePrice: 1000 }),
+    ]);
+    renderPage(AdminOffersHistoryPage);
+
+    expect(await screen.findAllByText("1,000.000 OMR")).not.toHaveLength(0);
+    expect(screen.getAllByText("Total price")).not.toHaveLength(0);
+  });
+});
+
 describe("AdminOffersHistoryPage — offer images", () => {
   it("shows each offer's cover next to its name, or a placeholder", async () => {
     mockedListOffers.mockResolvedValue([
