@@ -112,37 +112,40 @@ describe("PoolDetailPage — choosing how much to join", () => {
     return screen.getByRole("dialog", { name: "Join this pool" });
   }
 
-  const optionTexts = (dialog: HTMLElement) =>
-    within(within(dialog).getByLabelText(/Quantity/)).getAllByRole("option").map((o) => o.textContent);
+  const lotsField = (dialog: HTMLElement) => within(dialog).getByLabelText(/Number of lots/);
 
-  it("offers whole lots and the rest, each with its exact total", async () => {
+  it("starts at one lot and steps up to every lot, with the total following", async () => {
     const dialog = await openJoin({ currentQuantity: 100, minimumContribution: 25, minimumContributionPrice: 300 });
 
-    expect(optionTexts(dialog)).toEqual([
-      "25 box — 300.000 OMR",
-      "50 box — 600.000 OMR",
-      "75 box — 900.000 OMR",
-      "All 100 still free — 1,200.000 OMR",
-    ]);
-    expect(within(dialog).getByText(/In lots of 25 · 300\.000 OMR per lot\./)).toBeInTheDocument();
-    expect(within(dialog).getByText("300.000 OMR")).toBeInTheDocument();
+    expect(lotsField(dialog)).toHaveValue(1);
+    expect(within(dialog).getByText("25 box · 300.000 OMR")).toBeInTheDocument();
+
+    for (let i = 0; i < 3; i++) await user().click(within(dialog).getByRole("button", { name: "More lots" }));
+
+    expect(lotsField(dialog)).toHaveValue(4);
+    expect(within(dialog).getByText("100 box · 1,200.000 OMR")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "More lots" })).toBeDisabled();
+    // Nothing is left over, so the last lot already takes everything.
+    expect(within(dialog).queryByText(/Take everything still free/)).not.toBeInTheDocument();
   });
 
-  it("never offers a size that would strand the leftover, and prices the leftover pro rata", async () => {
+  it("stops a lot short of stranding the leftover, which only 'take everything' takes", async () => {
     const dialog = await openJoin({ currentQuantity: 100, minimumContribution: 30, minimumContributionPrice: 300 });
 
-    expect(optionTexts(dialog)).toEqual([
-      "30 box — 300.000 OMR",
-      "60 box — 600.000 OMR",
-      "All 100 still free (3 lots + 10 left over) — 1,000.000 OMR",
-    ]);
-    expect(within(dialog).getByText(/The last joiner also takes the 10 left over\./)).toBeInTheDocument();
+    await user().click(within(dialog).getByRole("button", { name: "More lots" }));
+    expect(lotsField(dialog)).toHaveValue(2);
+    expect(within(dialog).getByRole("button", { name: "More lots" })).toBeDisabled();
+
+    await user().click(within(dialog).getByLabelText(/Take everything still free: 100 box \(3 lots \+ 10 left over\)/));
+    expect(within(dialog).getByText("100 box · 1,000.000 OMR")).toBeInTheDocument();
   });
 
-  it("leaves only the last lot and the leftover together", async () => {
+  it("offers only the last lot and the leftover together", async () => {
     const dialog = await openJoin({ currentQuantity: 40, minimumContribution: 30, minimumContributionPrice: 300 });
 
-    expect(optionTexts(dialog)).toEqual(["All 40 still free (1 lot + 10 left over) — 400.000 OMR"]);
+    expect(within(dialog).queryByLabelText(/Number of lots/)).not.toBeInTheDocument();
+    expect(within(dialog).getByText("40 box (1 lot + 10 left over)")).toBeInTheDocument();
+    expect(within(dialog).getByText("40 box · 400.000 OMR")).toBeInTheDocument();
   });
 
   it("joins with the chosen size and goes to the payment page", async () => {
@@ -151,9 +154,9 @@ describe("PoolDetailPage — choosing how much to join", () => {
     vi.stubGlobal("location", { ...window.location, assign });
     const dialog = await openJoin({ currentQuantity: 100, minimumContribution: 25, minimumContributionPrice: 300 });
 
-    await screen.findByRole("option", { name: /All 100/ });
-    await user().selectOptions(within(dialog).getByLabelText(/Quantity/), "50");
-    expect(within(dialog).getByText("600.000 OMR")).toBeInTheDocument();
+    await within(dialog).findByRole("combobox");
+    await user().click(within(dialog).getByRole("button", { name: "More lots" }));
+    expect(within(dialog).getByText("50 box · 600.000 OMR")).toBeInTheDocument();
     await user().click(within(dialog).getByRole("button", { name: "Continue to payment" }));
 
     expect(mockedApi.joinPool).toHaveBeenCalledWith({ pool_ref: "pool-1", address_ref: "addr-1", quantity: 50 });
@@ -161,24 +164,22 @@ describe("PoolDetailPage — choosing how much to join", () => {
     vi.unstubAllGlobals();
   });
 
-  // Lots of 1 in a big pool would be a list of hundreds.
-  it("asks for a typed quantity in a pool with too many sizes to list, checking it", async () => {
+  // Lots of 2 in a pool of 500: no list to scroll, just a number of lots.
+  it("refuses a typed number of lots out of range, and can't continue with it", async () => {
     const dialog = await openJoin({ currentQuantity: 500, minimumContribution: 2, minimumContributionPrice: 10 });
-    const field = within(dialog).getByLabelText(/Quantity/);
 
-    expect(field.tagName).toBe("INPUT");
-    await user().clear(field);
-    await user().type(field, "499");
-    await user().click(within(dialog).getByRole("button", { name: "Continue to payment" }));
+    await user().clear(lotsField(dialog));
+    await user().type(lotsField(dialog), "251");
 
-    expect(within(dialog).getByText("Choose a multiple of 2 up to 498, or all 500 still free.")).toBeInTheDocument();
+    expect(within(dialog).getByText("Choose 1 to 250 lots.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Continue to payment" })).toBeDisabled();
     expect(mockedApi.joinPool).not.toHaveBeenCalled();
   });
 
   it("says when nothing is free to join", async () => {
     const dialog = await openJoin({ currentQuantity: 0, minimumContribution: 25, minimumContributionPrice: 300 });
 
-    expect(within(dialog).getAllByText("Nothing is free to join in this pool right now.")).not.toHaveLength(0);
+    expect(within(dialog).getByText("Nothing is free to join in this pool right now.")).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Continue to payment" })).toBeDisabled();
   });
 });
