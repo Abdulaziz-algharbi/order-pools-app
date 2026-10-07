@@ -1,12 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
-import { listPools } from "@/services/api";
+import { listPayouts, listPools } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { formatDate, formatNumber } from "@/lib/utils";
-import { formatOmrAmount, poolAmount } from "@/lib/pool-pricing";
+import { formatOmrAmount } from "@/lib/pool-pricing";
 import type { Pool } from "@/types/domain";
 
 export function SupplierPoolHistoryPage() {
@@ -16,6 +16,13 @@ export function SupplierPoolHistoryPage() {
     () => listPools({ status: ["COMPLETED", "CANCELLED"] }),
     [],
   );
+
+  // What the supplier is paid for each pool: the offer's whole price, as a
+  // payout created once the pool's delivery is DELIVERED. Not the retail
+  // value retailers paid at the admin's lot price — that's the platform's
+  // business. If payouts can't be loaded, only this column goes blank.
+  const { data: payouts } = useFetch(() => listPayouts(), []);
+  const payoutByPool = new Map((payouts ?? []).map((payout) => [payout.pool_ref, payout]));
 
   const sorted = [...(pools ?? [])].sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
 
@@ -36,9 +43,20 @@ export function SupplierPoolHistoryPage() {
       },
     },
     {
-      key: "revenue",
-      header: "Total value",
-      render: (p) => formatOmrAmount(poolAmount(p, p.targetQuantity - p.currentQuantity)),
+      key: "payout",
+      header: "Your payout",
+      render: (p) => {
+        const payout = payoutByPool.get(p._id);
+        if (payout) {
+          return (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-primary">{formatOmrAmount(payout.amount)}</span>
+              <StatusBadge status={payout.status} />
+            </div>
+          );
+        }
+        return p.status === "CANCELLED" ? "No payout (cancelled)" : "—";
+      },
     },
     { key: "participants", header: "Retailers", render: (p) => p.participantCount },
     { key: "closed", header: "Deadline", render: (p) => formatDate(p.endDate) },
