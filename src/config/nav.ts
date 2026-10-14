@@ -56,6 +56,7 @@ export const NAV_ITEMS: Record<Panel, NavItem[]> = {
     { label: "Payouts", to: "/admin/payouts", icon: WalletIcon },
     { label: "Suppliers", to: "/admin/suppliers", icon: BuildingIcon },
     { label: "Retailers", to: "/admin/retailers", icon: UsersIcon },
+    { label: "Notifications", to: "/admin/notifications", icon: BellIcon },
     { label: "Profile", to: "/admin/profile", icon: UserIcon },
   ],
 };

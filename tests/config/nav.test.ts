@@ -5,4 +5,8 @@ describe("NAV_ITEMS", () => {
   it.each(["retailer", "supplier", "admin"] as const)("links the %s panel to its profile page", (panel) => {
     expect(NAV_ITEMS[panel].map((item) => item.to)).toContain(`/${panel}/profile`);
   });
+
+  it.each(["retailer", "supplier", "admin"] as const)("links the %s panel to its notifications page", (panel) => {
+    expect(NAV_ITEMS[panel].map((item) => item.to)).toContain(`/${panel}/notifications`);
+  });
 });

@@ -6,14 +6,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { BellIcon } from "@/components/ui/icons";
-import type { AppNotification } from "@/types/domain";
 
 export function NotificationsPage() {
-  const { notifications, isLoading, unreadCount, markRead, markAllRead, isRead } = useNotifications();
-
-  const handleClick = (n: AppNotification) => {
-    markRead(n._id);
-  };
+  const { notifications, isLoading, unreadCount, markAllRead, isRead, openNotification } = useNotifications();
 
   return (
     <div>
@@ -41,7 +36,7 @@ export function NotificationsPage() {
         <Card className="overflow-hidden p-0">
           <div className="divide-y divide-slate-100">
             {notifications.map((n) => (
-              <NotificationItem key={n._id} notification={n} isRead={isRead(n)} onClick={handleClick} />
+              <NotificationItem key={n._id} notification={n} isRead={isRead(n)} onClick={openNotification} />
             ))}
           </div>
         </Card>

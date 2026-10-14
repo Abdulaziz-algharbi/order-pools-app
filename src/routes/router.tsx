@@ -99,6 +99,7 @@ export const router = createBrowserRouter([
       { path: "payouts", element: <AdminPayoutsPage />, handle: { title: "Payouts" } },
       { path: "suppliers", element: <AdminSuppliersPage />, handle: { title: "Suppliers" } },
       { path: "retailers", element: <AdminRetailersPage />, handle: { title: "Retailers" } },
+      { path: "notifications", element: <NotificationsPage />, handle: { title: "Notifications" } },
       { path: "profile", element: <ProfilePage panel="admin" />, handle: { title: "Profile" } },
     ],
   },

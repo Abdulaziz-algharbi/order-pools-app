@@ -1,4 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   NOTIFICATIONS_POLL_MS,
@@ -38,7 +39,7 @@ function notification(id: string, isRead = false): AppNotification {
 // drive it the way the bell and the page do. `name` tells two consumers
 // apart.
 function Probe({ name }: { name: string }) {
-  const { notifications, unreadCount, isRead, markRead, markAllRead } = useNotifications();
+  const { notifications, unreadCount, isRead, markRead, markAllRead, openNotification } = useNotifications();
   return (
     <div>
       <p data-testid={`${name}-count`}>{unreadCount}</p>
@@ -51,16 +52,29 @@ function Probe({ name }: { name: string }) {
       </ul>
       <button onClick={() => markRead("n1")}>{name} read n1</button>
       <button onClick={() => markAllRead()}>{name} read all</button>
+      {notifications.map((n) => (
+        <button key={n._id} onClick={() => openNotification(n)}>
+          {name} open {n._id}
+        </button>
+      ))}
     </div>
   );
 }
 
-async function renderStore() {
+function Location() {
+  const { pathname, search } = useLocation();
+  return <p data-testid="location">{pathname + search}</p>;
+}
+
+async function renderStore(panel: "retailer" | "supplier" | "admin" = "retailer") {
   render(
-    <NotificationsProvider>
-      <Probe name="bell" />
-      <Probe name="page" />
-    </NotificationsProvider>,
+    <MemoryRouter initialEntries={[`/${panel}/notifications`]}>
+      <NotificationsProvider panel={panel}>
+        <Probe name="bell" />
+        <Probe name="page" />
+        <Location />
+      </NotificationsProvider>
+    </MemoryRouter>,
   );
   // The first load.
   await act(async () => {});
@@ -146,6 +160,37 @@ describe("NotificationsProvider", () => {
     expect(screen.getByTestId("page-n1")).toHaveTextContent("read");
     expect(screen.getByTestId("page-n2")).toHaveTextContent("read");
     expect(screen.getByTestId("page-count")).toHaveTextContent("0");
+  });
+});
+
+describe("NotificationsProvider openNotification", () => {
+  it("marks it read and opens its page in this panel", async () => {
+    await renderStore("retailer");
+
+    await click("bell open n1");
+
+    expect(screen.getByTestId("location")).toHaveTextContent("/retailer/joins?pool=pool-1");
+    expect(mockedApi.markNotificationRead).toHaveBeenCalledWith("n1");
+    expect(screen.getByTestId("page-n1")).toHaveTextContent("read");
+  });
+
+  it("only marks it read when it has nothing to open in this panel", async () => {
+    // A payment notification has no supplier-panel page.
+    await renderStore("supplier");
+
+    await click("bell open n1");
+
+    expect(screen.getByTestId("location")).toHaveTextContent("/supplier/notifications");
+    expect(mockedApi.markNotificationRead).toHaveBeenCalledWith("n1");
+  });
+
+  it("still opens the page when saving the read fails", async () => {
+    mockedApi.markNotificationRead.mockRejectedValue(new Error("offline"));
+    await renderStore("retailer");
+
+    await click("bell open n1");
+
+    expect(screen.getByTestId("location")).toHaveTextContent("/retailer/joins?pool=pool-1");
   });
 });
 

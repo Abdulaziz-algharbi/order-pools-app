@@ -20,7 +20,7 @@ export function AppShell({ role }: { role: Panel }) {
       | undefined;
 
   return (
-    <NotificationsProvider>
+    <NotificationsProvider panel={role}>
       <div className="flex h-dvh bg-neutral">
         {/* Desktop sidebar */}
         <aside className="hidden w-64 shrink-0 lg:block">

@@ -23,7 +23,7 @@ export function RetailerDashboard() {
     error: poolsError,
     refetch,
   } = useFetch(() => listPools({ status: "OPEN" }), []);
-  const { notifications, unreadCount, isRead } = useNotifications();
+  const { notifications, unreadCount, isRead, openNotification } = useNotifications();
 
   const activeJoinCount = (participants ?? []).filter((p) => p.status !== "WITHDRAWN").length;
   const closingSoon = (pools ?? [])
@@ -107,7 +107,7 @@ export function RetailerDashboard() {
           ) : (
             <div className="divide-y divide-slate-100">
               {notifications.slice(0, 5).map((n) => (
-                <NotificationItem key={n._id} notification={n} isRead={isRead(n)} />
+                <NotificationItem key={n._id} notification={n} isRead={isRead(n)} onClick={openNotification} />
               ))}
             </div>
           )}

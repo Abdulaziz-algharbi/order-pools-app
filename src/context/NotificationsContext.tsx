@@ -8,7 +8,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import type { Panel } from "@/lib/panel";
+import { notificationTarget } from "@/lib/notification-target";
 import type { AppNotification } from "@/types/domain";
 import {
   getUnreadNotificationCount,
@@ -29,6 +32,9 @@ interface NotificationsContextValue {
   isRead: (notification: AppNotification) => boolean;
   markRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
+  /** A click on a notification: marks it read and opens its page in this
+   *  panel, if it has one (see lib/notification-target.ts). */
+  openNotification: (notification: AppNotification) => void;
   refresh: () => Promise<void>;
 }
 
@@ -45,8 +51,9 @@ const NotificationsContext = createContext<NotificationsContextValue | undefined
  * while the tab is visible, and when the tab or window regains focus; the
  * list is only re-read when that count changed.
  */
-export function NotificationsProvider({ children }: { children: ReactNode }) {
+export function NotificationsProvider({ panel, children }: { panel: Panel; children: ReactNode }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const userId = user?._id;
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -150,9 +157,21 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   }, [markLocally, applyCount, refresh]);
 
+  // Navigates without waiting for the read to be saved: a slow or failed
+  // PATCH must never keep the user from the page (markRead re-syncs on
+  // failure).
+  const openNotification = useCallback(
+    (n: AppNotification) => {
+      void markRead(n._id);
+      const to = notificationTarget(n, panel);
+      if (to) navigate(to);
+    },
+    [markRead, panel, navigate],
+  );
+
   const value = useMemo(
-    () => ({ notifications, isLoading, unreadCount, isRead, markRead, markAllRead, refresh }),
-    [notifications, isLoading, unreadCount, isRead, markRead, markAllRead, refresh],
+    () => ({ notifications, isLoading, unreadCount, isRead, markRead, markAllRead, openNotification, refresh }),
+    [notifications, isLoading, unreadCount, isRead, markRead, markAllRead, openNotification, refresh],
   );
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;

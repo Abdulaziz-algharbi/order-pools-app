@@ -17,11 +17,6 @@ import type { AppNotification } from "@/types/domain";
 import type { Panel } from "@/lib/panel";
 import { PANEL_LABEL, panelsFor } from "@/lib/panel";
 
-const NOTIFICATIONS_PAGE: Partial<Record<Panel, string>> = {
-  retailer: "/retailer/notifications",
-  supplier: "/supplier/notifications",
-};
-
 function useClickOutside(onOutside: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -50,7 +45,7 @@ export function Topbar({
   const notifRef = useClickOutside(() => setNotifOpen(false));
   const profileRef = useClickOutside(() => setProfileOpen(false));
 
-  const { notifications, unreadCount, markRead, markAllRead, isRead } = useNotifications();
+  const { notifications, unreadCount, markAllRead, isRead, openNotification } = useNotifications();
 
   const otherPanels = user ? panelsFor(user).filter((p) => p !== role) : [];
 
@@ -59,8 +54,8 @@ export function Topbar({
     : "";
 
   const handleNotificationClick = (n: AppNotification) => {
-    markRead(n._id);
     setNotifOpen(false);
+    openNotification(n);
   };
 
   return (
@@ -121,18 +116,16 @@ export function Topbar({
                   ))}
                 </div>
               )}
-              {NOTIFICATIONS_PAGE[role] && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigate(NOTIFICATIONS_PAGE[role]!);
-                    setNotifOpen(false);
-                  }}
-                  className="block w-full border-t border-slate-100 py-2.5 text-center text-sm font-medium text-tertiary hover:bg-slate-50"
-                >
-                  View all
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  navigate(`/${role}/notifications`);
+                  setNotifOpen(false);
+                }}
+                className="block w-full border-t border-slate-100 py-2.5 text-center text-sm font-medium text-tertiary hover:bg-slate-50"
+              >
+                View all
+              </button>
             </div>
           )}
         </div>
