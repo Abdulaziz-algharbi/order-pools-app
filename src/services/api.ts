@@ -538,6 +538,22 @@ export async function markNotificationRead(id: string, isRead = true): Promise<A
   return res.data;
 }
 
+// The bell's badge, without fetching the inbox. Panel-scoped like the list.
+export async function getUnreadNotificationCount(): Promise<number> {
+  const res = await request<Envelope<{ count: number }>>("/notifications/unread-count", {
+    query: panelScope(),
+  });
+  return res.data.count;
+}
+
+// Every unread notification in this panel's inbox, in one call.
+export async function markAllNotificationsRead(): Promise<void> {
+  await request<Envelope<{ modified: number }>>("/notifications/read-all", {
+    method: "PATCH",
+    query: panelScope(),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Users, suppliers & retailers (admin management)
 // ---------------------------------------------------------------------------

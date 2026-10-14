@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar } from "@/components/domain/Avatar";
-import { useNotifications } from "@/hooks/useNotifications";
+import { useNotifications } from "@/context/NotificationsContext";
 import { NotificationItem } from "@/components/domain/NotificationItem";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
@@ -50,9 +50,7 @@ export function Topbar({
   const notifRef = useClickOutside(() => setNotifOpen(false));
   const profileRef = useClickOutside(() => setProfileOpen(false));
 
-  const { notifications, unreadCount, markRead, markAllRead, isReadForUser } = useNotifications(
-    user?._id,
-  );
+  const { notifications, unreadCount, markRead, markAllRead, isRead } = useNotifications();
 
   const otherPanels = user ? panelsFor(user).filter((p) => p !== role) : [];
 
@@ -117,7 +115,7 @@ export function Topbar({
                     <NotificationItem
                       key={n._id}
                       notification={n}
-                      isRead={isReadForUser(n)}
+                      isRead={isRead(n)}
                       onClick={handleNotificationClick}
                     />
                   ))}

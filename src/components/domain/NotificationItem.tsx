@@ -10,6 +10,11 @@ const ICONS: Record<AppNotification["type"], string> = {
   SUPPLIER_REQUEST_CREATED: "📝",
   SUPPLIER_REQUEST_APPROVED: "🎉",
   SUPPLIER_REQUEST_REJECTED: "✉️",
+  PRODUCT_OFFER_SUBMITTED: "📦",
+  PRODUCT_OFFER_REVISED: "✏️",
+  PRODUCT_OFFER_APPROVED: "🎉",
+  PRODUCT_OFFER_CHANGES_REQUESTED: "💬",
+  PRODUCT_OFFER_REJECTED: "✉️",
 };
 
 interface NotificationItemProps {

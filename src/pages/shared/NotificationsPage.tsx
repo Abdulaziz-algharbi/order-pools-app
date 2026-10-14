@@ -1,5 +1,4 @@
-import { useAuth } from "@/context/AuthContext";
-import { useNotifications } from "@/hooks/useNotifications";
+import { useNotifications } from "@/context/NotificationsContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { NotificationItem } from "@/components/domain/NotificationItem";
@@ -10,10 +9,7 @@ import { BellIcon } from "@/components/ui/icons";
 import type { AppNotification } from "@/types/domain";
 
 export function NotificationsPage() {
-  const { user } = useAuth();
-  const { notifications, isLoading, unreadCount, markRead, markAllRead, isReadForUser } = useNotifications(
-    user?._id,
-  );
+  const { notifications, isLoading, unreadCount, markRead, markAllRead, isRead } = useNotifications();
 
   const handleClick = (n: AppNotification) => {
     markRead(n._id);
@@ -45,7 +41,7 @@ export function NotificationsPage() {
         <Card className="overflow-hidden p-0">
           <div className="divide-y divide-slate-100">
             {notifications.map((n) => (
-              <NotificationItem key={n._id} notification={n} isRead={isReadForUser(n)} onClick={handleClick} />
+              <NotificationItem key={n._id} notification={n} isRead={isRead(n)} onClick={handleClick} />
             ))}
           </div>
         </Card>

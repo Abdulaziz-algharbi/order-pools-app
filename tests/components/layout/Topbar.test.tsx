@@ -4,13 +4,13 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Topbar } from "@/components/layout/Topbar";
 import { useAuth } from "@/context/AuthContext";
-import { useNotifications } from "@/hooks/useNotifications";
+import { useNotifications } from "@/context/NotificationsContext";
 import type { Panel } from "@/lib/panel";
 import type { AppUser } from "@/types/domain";
 import { authValue, makeUser } from "../../fixtures/auth";
 
 vi.mock("@/context/AuthContext", () => ({ useAuth: vi.fn() }));
-vi.mock("@/hooks/useNotifications", () => ({ useNotifications: vi.fn() }));
+vi.mock("@/context/NotificationsContext", () => ({ useNotifications: vi.fn() }));
 
 const mockedUseAuth = vi.mocked(useAuth);
 const mockedUseNotifications = vi.mocked(useNotifications);
@@ -36,7 +36,7 @@ beforeEach(() => {
     unreadCount: 0,
     markRead: vi.fn(),
     markAllRead: vi.fn(),
-    isReadForUser: () => true,
+    isRead: () => true,
   } as unknown as ReturnType<typeof useNotifications>);
 });
 

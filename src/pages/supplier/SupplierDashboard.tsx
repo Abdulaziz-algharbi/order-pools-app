@@ -1,7 +1,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useFetch } from "@/hooks/useFetch";
 import { listOffers, listPools } from "@/services/api";
-import { useNotifications } from "@/hooks/useNotifications";
+import { useNotifications } from "@/context/NotificationsContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { PoolCard } from "@/components/domain/PoolCard";
@@ -17,7 +17,7 @@ export function SupplierDashboard() {
 
   const { data: offers, isLoading: offersLoading } = useFetch(() => listOffers(), []);
   const { data: pools, isLoading: poolsLoading } = useFetch(() => listPools(), []);
-  const { unreadCount } = useNotifications(user?._id);
+  const { unreadCount } = useNotifications();
 
   const pendingOffers = (offers ?? []).filter((o) => o.status === "PENDING" || o.status === "NEGOTIATION");
   const openPools = (pools ?? []).filter((p) => p.status === "OPEN");

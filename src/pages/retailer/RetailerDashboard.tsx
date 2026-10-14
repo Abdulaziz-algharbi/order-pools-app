@@ -1,7 +1,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useFetch } from "@/hooks/useFetch";
 import { listMyParticipants, listPools } from "@/services/api";
-import { useNotifications } from "@/hooks/useNotifications";
+import { useNotifications } from "@/context/NotificationsContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
 import { PoolCard } from "@/components/domain/PoolCard";
@@ -23,7 +23,7 @@ export function RetailerDashboard() {
     error: poolsError,
     refetch,
   } = useFetch(() => listPools({ status: "OPEN" }), []);
-  const { notifications, unreadCount, isReadForUser } = useNotifications(user?._id);
+  const { notifications, unreadCount, isRead } = useNotifications();
 
   const activeJoinCount = (participants ?? []).filter((p) => p.status !== "WITHDRAWN").length;
   const closingSoon = (pools ?? [])
@@ -107,7 +107,7 @@ export function RetailerDashboard() {
           ) : (
             <div className="divide-y divide-slate-100">
               {notifications.slice(0, 5).map((n) => (
-                <NotificationItem key={n._id} notification={n} isRead={isReadForUser(n)} />
+                <NotificationItem key={n._id} notification={n} isRead={isRead(n)} />
               ))}
             </div>
           )}

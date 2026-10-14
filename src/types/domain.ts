@@ -285,7 +285,12 @@ export type NotificationType =
   | "PAYMENT_REFUNDED"
   | "SUPPLIER_REQUEST_CREATED"
   | "SUPPLIER_REQUEST_APPROVED"
-  | "SUPPLIER_REQUEST_REJECTED";
+  | "SUPPLIER_REQUEST_REJECTED"
+  | "PRODUCT_OFFER_SUBMITTED"
+  | "PRODUCT_OFFER_REVISED"
+  | "PRODUCT_OFFER_APPROVED"
+  | "PRODUCT_OFFER_CHANGES_REQUESTED"
+  | "PRODUCT_OFFER_REJECTED";
 
 export type NotificationPriority = "LOW" | "NORMAL" | "HIGH";
 
@@ -293,6 +298,16 @@ export interface NotificationRecipient {
   user_ref: string;
   isRead: boolean;
   readAt?: string | null;
+}
+
+export type NotificationResourceType = "POOL" | "SUPPLIER_REQUEST" | "PRODUCT_OFFER";
+
+/** What a notification is about. The backend never sends a URL — the
+ *  frontend picks the page from the notification's type, this resource and
+ *  the active panel, so stored notifications survive a route rename. */
+export interface NotificationResource {
+  type: NotificationResourceType;
+  id: string;
 }
 
 /**
@@ -308,7 +323,9 @@ export interface AppNotification {
   type: NotificationType;
   title: string;
   message: string;
-  actionUrl?: string | null;
+  /** null (or absent, on notifications created before it existed) when
+   *  there's nothing to open. */
+  resource?: NotificationResource | null;
   priority: NotificationPriority;
   createdAt: string;
   updatedAt: string;
