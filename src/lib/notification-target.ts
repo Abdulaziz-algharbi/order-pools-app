@@ -80,6 +80,11 @@ const TARGETS: Record<NotificationType, Target> = {
   },
   PRODUCT_OFFER_CHANGES_REQUESTED: SUPPLIER_OFFER,
   PRODUCT_OFFER_REJECTED: SUPPLIER_OFFER,
+  // A full pool waiting for its delivery to be started.
+  POOL_TARGET_REACHED: {
+    resource: "POOL",
+    pages: { admin: (id) => `/admin/met-pools?pool=${id}` },
+  },
 };
 
 /** The page to open for `notification` in `panel`, or null for none. */

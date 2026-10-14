@@ -290,7 +290,8 @@ export type NotificationType =
   | "PRODUCT_OFFER_REVISED"
   | "PRODUCT_OFFER_APPROVED"
   | "PRODUCT_OFFER_CHANGES_REQUESTED"
-  | "PRODUCT_OFFER_REJECTED";
+  | "PRODUCT_OFFER_REJECTED"
+  | "POOL_TARGET_REACHED";
 
 export type NotificationPriority = "LOW" | "NORMAL" | "HIGH";
 

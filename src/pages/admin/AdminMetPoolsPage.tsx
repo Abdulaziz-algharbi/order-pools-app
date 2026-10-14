@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
+import { LINKED_ITEM_CLASS, linkedItemAttrs, useLinkedItem } from "@/hooks/useLinkedItem";
+import { LinkedItemNotice } from "@/components/domain/LinkedItemNotice";
 import { createDelivery, listPools } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -10,13 +12,16 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Spinner";
 import { LayersIcon } from "@/components/ui/icons";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { cn, formatDate, formatNumber } from "@/lib/utils";
 import { ApiError } from "@/lib/http";
 import type { Pool } from "@/types/domain";
 
 export function AdminMetPoolsPage() {
   const navigate = useNavigate();
   const { data: pools, isLoading, error, refetch } = useFetch(() => listPools({ status: "TARGET_REACHED" }), []);
+
+  // A notification's ?pool=: the full pool to start delivering.
+  const linked = useLinkedItem("pool", isLoading || error ? null : (pools ?? []).map((p) => p._id));
 
   const [activePool, setActivePool] = useState<Pool | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -41,6 +46,16 @@ export function AdminMetPoolsPage() {
     <div>
       <PageHeader title="Met Pools" description="Pools that reached their target quantity and are ready to start delivery." />
 
+      {linked.notFound && (
+        <LinkedItemNotice>
+          This pool isn't waiting for delivery any more — another admin may have already started it. See{" "}
+          <Link to="/admin/track" className="font-medium text-tertiary hover:underline">
+            Track Pools
+          </Link>
+          .
+        </LinkedItemNotice>
+      )}
+
       {error ? (
         <ErrorState onRetry={refetch} />
       ) : isLoading ? (
@@ -54,7 +69,11 @@ export function AdminMetPoolsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {pools!.map((pool) => (
-            <Card key={pool._id}>
+            <Card
+              key={pool._id}
+              {...linkedItemAttrs(linked.isLinked(pool._id))}
+              className={cn(linked.isLinked(pool._id) && LINKED_ITEM_CLASS)}
+            >
               <CardContent className="space-y-3">
                 <div>
                   {pool.supplierName && (
