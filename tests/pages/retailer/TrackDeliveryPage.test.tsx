@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TrackDeliveryPage } from "@/pages/retailer/TrackDeliveryPage";
 import * as api from "@/services/api";
 import { makeParticipant, makePool } from "../../fixtures/pools";
@@ -13,9 +13,9 @@ vi.mock("@/services/api", () => ({
 
 const mockedApi = vi.mocked(api);
 
-function renderPage() {
+function renderPage(url = "/retailer/track") {
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[url]}>
       <TrackDeliveryPage />
     </MemoryRouter>,
   );
@@ -54,5 +54,32 @@ describe("TrackDeliveryPage", () => {
     renderPage();
 
     expect(await screen.findByText("No deliveries to track yet")).toBeInTheDocument();
+  });
+});
+
+// A delivery notification's link: /retailer/track?pool=<id>.
+describe("TrackDeliveryPage — opened from a notification", () => {
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+    mockedApi.listMyParticipants.mockResolvedValue([
+      makeParticipant({ _id: "p-1", pool_ref: "pool-paid", status: "WAITING" }),
+    ]);
+  });
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  it("highlights that pool's delivery and scrolls to it", async () => {
+    renderPage("/retailer/track?pool=pool-paid");
+
+    const name = await screen.findByText("Basmati Rice 25kg");
+    expect(name.closest("[data-linked-item]")).not.toBeNull();
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("says when that pool's delivery can't be tracked", async () => {
+    renderPage("/retailer/track?pool=pool-failed");
+
+    expect(await screen.findByRole("status")).toHaveTextContent("That pool's delivery isn't available to track yet.");
   });
 });

@@ -1,10 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminOffersPage } from "@/pages/admin/AdminOffersPage";
 import { AdminOffersHistoryPage } from "@/pages/admin/AdminOffersHistoryPage";
-import { approveOffer, getUserById, listOffers } from "@/services/api";
+import { approveOffer, getUserById, listOffers, reviewOffer } from "@/services/api";
 import { ApiError } from "@/lib/http";
 import type { ProductOffer } from "@/types/domain";
 
@@ -227,5 +227,65 @@ describe("AdminOffersPage — approving with lot terms", () => {
     expect(await within(dialog).findByText(/break-even of 400\.000 OMR/)).toBeInTheDocument();
     expect(priceField(dialog)).toHaveAttribute("aria-invalid", "true");
     expect(priceField(dialog)).toHaveAccessibleDescription(expect.stringContaining("break-even of 400.000 OMR"));
+  });
+});
+
+// A notification's link: /admin/offers?offer=<id>.
+describe("AdminOffersPage — opened from a notification", () => {
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  function renderAt(url: string) {
+    render(
+      <MemoryRouter initialEntries={[url]}>
+        <AdminOffersPage />
+      </MemoryRouter>,
+    );
+  }
+
+  const offerCard = (name: string) => screen.getByRole("heading", { name }).closest("[class*=rounded-xl]");
+
+  it("highlights the offer to review and scrolls to it", async () => {
+    mockedListOffers.mockResolvedValue([
+      makeOffer({ _id: "offer-1", name: "Dates 5kg" }),
+      makeOffer({ _id: "offer-2", name: "Rice 25kg" }),
+    ]);
+    renderAt("/admin/offers?offer=offer-2");
+
+    await screen.findByRole("heading", { name: "Rice 25kg" });
+
+    expect(offerCard("Rice 25kg")).toHaveAttribute("data-linked-item");
+    expect(offerCard("Dates 5kg")).not.toHaveAttribute("data-linked-item");
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("says when the offer was already decided on, pointing to the history", async () => {
+    mockedListOffers.mockResolvedValue([makeOffer()]);
+    renderAt("/admin/offers?offer=decided-offer");
+
+    const notice = await screen.findByRole("status");
+    expect(notice).toHaveTextContent("This offer isn't awaiting review any more");
+    expect(within(notice).getByRole("link", { name: "Offers History" })).toHaveAttribute(
+      "href",
+      "/admin/offers-history",
+    );
+  });
+
+  it("doesn't say so after the admin decides on it here", async () => {
+    mockedListOffers.mockResolvedValueOnce([makeOffer()]).mockResolvedValue([]);
+    vi.mocked(reviewOffer).mockResolvedValue(makeOffer({ status: "REJECTED" }));
+    renderAt("/admin/offers?offer=offer-1");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Reject" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(within(dialog).getByLabelText(/Note to supplier/), "Price above market");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Reject offer" }));
+
+    expect(await screen.findByText("No offers awaiting review")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });

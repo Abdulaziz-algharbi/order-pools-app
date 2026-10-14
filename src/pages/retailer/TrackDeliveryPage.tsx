@@ -1,4 +1,6 @@
 import { useFetch } from "@/hooks/useFetch";
+import { LINKED_ITEM_CLASS, linkedItemAttrs, useLinkedItem } from "@/hooks/useLinkedItem";
+import { LinkedItemNotice } from "@/components/domain/LinkedItemNotice";
 import { listDeliveries, listMyParticipants, listPools } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -36,9 +38,16 @@ export function TrackDeliveryPage() {
       (participants ?? []).some((part) => part.pool_ref === p._id && tracksPoolDelivery(part, p)),
   );
 
+  // A delivery notification's ?pool=: that pool's progress.
+  const linked = useLinkedItem("pool", isLoading || error ? null : trackablePools.map((p) => p._id));
+
   return (
     <div>
       <PageHeader title="Track Deliveries" description="Follow the delivery progress of pools you've joined." />
+
+      {linked.notFound && (
+        <LinkedItemNotice>That pool's delivery isn't available to track yet.</LinkedItemNotice>
+      )}
 
       {error ? (
         <ErrorState onRetry={refetch} />
@@ -61,7 +70,11 @@ export function TrackDeliveryPage() {
             const myParticipation = participants?.find((p) => p.pool_ref === pool._id);
             const delivery = deliveries?.find((d) => d.pool_ref === pool._id);
             return (
-              <Card key={pool._id}>
+              <Card
+                key={pool._id}
+                {...linkedItemAttrs(linked.isLinked(pool._id))}
+                className={cn(linked.isLinked(pool._id) && LINKED_ITEM_CLASS)}
+              >
                 <CardContent className="space-y-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Spinner";
+import { LINKED_ITEM_CLASS, linkedItemAttrs } from "@/hooks/useLinkedItem";
 
 export interface Column<T> {
   key: string;
@@ -22,6 +23,8 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   /** Heading shown at the top of each mobile card. Defaults to the first column's value. */
   renderMobileTitle?: (row: T) => ReactNode;
+  /** The row a link pointed at (see useLinkedItem), highlighted. */
+  isRowLinked?: (row: T) => boolean;
 }
 
 export function DataTable<T>({
@@ -33,7 +36,9 @@ export function DataTable<T>({
   emptyDescription,
   onRowClick,
   renderMobileTitle,
+  isRowLinked,
 }: DataTableProps<T>) {
+
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -67,7 +72,11 @@ export function DataTable<T>({
               <tr
                 key={rowKey(row)}
                 onClick={() => onRowClick?.(row)}
-                className={cn(onRowClick && "cursor-pointer hover:bg-slate-50")}
+                {...linkedItemAttrs(!!isRowLinked?.(row))}
+                className={cn(
+                  onRowClick && "cursor-pointer hover:bg-slate-50",
+                  isRowLinked?.(row) && "bg-secondary/10",
+                )}
               >
                 {columns.map((col) => (
                   <td key={col.key} className={cn("px-4 py-3 align-middle", col.className)}>
@@ -86,9 +95,11 @@ export function DataTable<T>({
           <div
             key={rowKey(row)}
             onClick={() => onRowClick?.(row)}
+            {...linkedItemAttrs(!!isRowLinked?.(row))}
             className={cn(
               "rounded-xl border border-slate-200 bg-white p-4",
               onRowClick && "cursor-pointer active:bg-slate-50",
+              isRowLinked?.(row) && LINKED_ITEM_CLASS,
             )}
           >
             <div className="mb-2 font-medium text-primary">

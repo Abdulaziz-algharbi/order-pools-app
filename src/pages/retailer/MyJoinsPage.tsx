@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
+import { useLinkedItem } from "@/hooks/useLinkedItem";
+import { LinkedItemNotice } from "@/components/domain/LinkedItemNotice";
 import { cancelPayment, listMyParticipants, listMyPayments, listPools, withdrawParticipant } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, type Column } from "@/components/ui/DataTable";
@@ -50,6 +52,9 @@ export function MyJoinsPage() {
     })
     .filter((r): r is JoinRow => r !== null)
     .sort((a, b) => new Date(b.participant.createdAt).getTime() - new Date(a.participant.createdAt).getTime());
+
+  // A payment notification's ?pool=: the join in that pool.
+  const linked = useLinkedItem("pool", isLoading || error ? null : rows.map((r) => r.pool._id));
 
   const refetchAll = () => {
     refetch();
@@ -173,6 +178,8 @@ export function MyJoinsPage() {
         action={<LinkButton to="/retailer/pools" variant="outline" size="sm">Browse pools</LinkButton>}
       />
 
+      {linked.notFound && <LinkedItemNotice>That pool isn't in your joins any more.</LinkedItemNotice>}
+
       {error ? (
         <ErrorState onRetry={refetch} />
       ) : (
@@ -185,6 +192,7 @@ export function MyJoinsPage() {
           emptyDescription="Browse active pools and join one to start saving on wholesale prices."
           onRowClick={(r) => navigate(`/retailer/pools/${r.pool._id}`)}
           renderMobileTitle={(r) => r.pool.productName}
+          isRowLinked={(r) => linked.isLinked(r.pool._id)}
         />
       )}
 

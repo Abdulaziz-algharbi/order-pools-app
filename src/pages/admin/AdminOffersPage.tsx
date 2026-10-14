@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
+import { LINKED_ITEM_CLASS, linkedItemAttrs, useLinkedItem } from "@/hooks/useLinkedItem";
+import { LinkedItemNotice } from "@/components/domain/LinkedItemNotice";
 import { approveOffer, getUserById, listOffers, reviewOffer } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ImageGallery } from "@/components/domain/ImageGallery";
@@ -12,7 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Spinner";
 import { ListIcon } from "@/components/ui/icons";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { cn, formatDate, formatNumber } from "@/lib/utils";
 import { cldUrl } from "@/lib/cloudinary";
 import { ApiError, apiErrorMessage } from "@/lib/http";
 import { checkApproveTerms, formatOmrAmount } from "@/lib/pool-pricing";
@@ -46,6 +49,8 @@ export function AdminOffersPage() {
     [],
   );
   const [supplierNames, setSupplierNames] = useState<Map<string, string>>(new Map());
+  // A notification's ?offer=: the offer to review.
+  const linked = useLinkedItem("offer", isLoading || error ? null : (offers ?? []).map((o) => o._id));
 
   useEffect(() => {
     if (!offers || offers.length === 0) return;
@@ -170,6 +175,16 @@ export function AdminOffersPage() {
     <div>
       <PageHeader title="Supplier Offers" description="Review new wholesale offers awaiting a decision." />
 
+      {linked.notFound && (
+        <LinkedItemNotice>
+          This offer isn't awaiting review any more — another admin may have already decided on it. See{" "}
+          <Link to="/admin/offers-history" className="font-medium text-tertiary hover:underline">
+            Offers History
+          </Link>
+          .
+        </LinkedItemNotice>
+      )}
+
       {error ? (
         <ErrorState onRetry={refetch} />
       ) : isLoading ? (
@@ -183,7 +198,11 @@ export function AdminOffersPage() {
       ) : (
         <div className="space-y-4">
           {offers!.map((o) => (
-            <Card key={o._id}>
+            <Card
+              key={o._id}
+              {...linkedItemAttrs(linked.isLinked(o._id))}
+              className={cn(linked.isLinked(o._id) && LINKED_ITEM_CLASS)}
+            >
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>

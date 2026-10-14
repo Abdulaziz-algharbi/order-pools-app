@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminSuppliersPage } from "@/pages/admin/AdminSuppliersPage";
 import * as api from "@/services/api";
 import { ApiError } from "@/lib/http";
@@ -44,8 +45,12 @@ beforeEach(() => {
   mockedApi.getUserById.mockResolvedValue(requester);
 });
 
-async function renderPage() {
-  render(<AdminSuppliersPage />);
+async function renderPage(url = "/admin/suppliers") {
+  render(
+    <MemoryRouter initialEntries={[url]}>
+      <AdminSuppliersPage />
+    </MemoryRouter>,
+  );
   await screen.findByText("Said Trading");
 }
 
@@ -156,5 +161,31 @@ describe("AdminSuppliersPage — reviewing supplier requests", () => {
     await userEvent.click(screen.getByRole("button", { name: "Approve" }));
 
     expect(await screen.findByText("Only a PENDING request can be reviewed")).toBeInTheDocument();
+  });
+});
+
+// A notification's link: /admin/suppliers?request=<id>.
+describe("AdminSuppliersPage — opened from a notification", () => {
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  const requestCard = () => screen.getByText(pendingRequest.description).closest("[class*=rounded-xl]");
+
+  it("highlights the request to review and scrolls to it", async () => {
+    await renderPage("/admin/suppliers?request=req-1");
+
+    expect(requestCard()).toHaveAttribute("data-linked-item");
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("says when the request was already reviewed", async () => {
+    await renderPage("/admin/suppliers?request=req-reviewed");
+
+    expect(screen.getByRole("status")).toHaveTextContent("This supplier request has already been reviewed");
+    expect(requestCard()).not.toHaveAttribute("data-linked-item");
   });
 });

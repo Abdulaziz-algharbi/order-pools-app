@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MyJoinsPage } from "@/pages/retailer/MyJoinsPage";
 import * as api from "@/services/api";
 import { makeParticipant, makePayment, makePool } from "../../fixtures/pools";
@@ -27,9 +27,9 @@ function tableRow(productName: string) {
   return row;
 }
 
-async function renderPage() {
+async function renderPage(url = "/retailer/joins") {
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[url]}>
       <MyJoinsPage />
     </MemoryRouter>,
   );
@@ -86,5 +86,31 @@ describe("MyJoinsPage — totals", () => {
     await renderPage();
 
     expect(within(tableRow("Basmati Rice 25kg")).getByText("120.000 OMR")).toBeInTheDocument();
+  });
+});
+
+// A payment notification's link: /retailer/joins?pool=<id>.
+describe("MyJoinsPage — opened from a notification", () => {
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  it("highlights the join in that pool, in the table and the mobile cards", async () => {
+    await renderPage("/retailer/joins?pool=pool-1");
+
+    expect(tableRow("Basmati Rice 25kg")).toHaveAttribute("data-linked-item");
+    expect(tableRow("Olive Oil 5L")).not.toHaveAttribute("data-linked-item");
+    // The row and its mobile card: the hook scrolls to whichever shows.
+    expect(document.querySelectorAll("[data-linked-item]")).toHaveLength(2);
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("says when there's no join in that pool", async () => {
+    await renderPage("/retailer/joins?pool=pool-unknown");
+
+    expect(screen.getByRole("status")).toHaveTextContent("That pool isn't in your joins any more.");
   });
 });

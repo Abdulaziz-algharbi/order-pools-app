@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useFetch } from "@/hooks/useFetch";
+import { LINKED_ITEM_CLASS, linkedItemAttrs, useLinkedItem } from "@/hooks/useLinkedItem";
+import { LinkedItemNotice } from "@/components/domain/LinkedItemNotice";
 import {
   createSupplierAccount,
   decideSupplierRemoveRequest,
@@ -18,7 +20,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FieldWrapper, Input, Textarea } from "@/components/ui/Field";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { PlusIcon, TrashIcon } from "@/components/ui/icons";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { ApiError } from "@/lib/http";
 import type { AppUser, SupplierRemoveRequest, SupplierRequest } from "@/types/domain";
 
@@ -60,6 +62,8 @@ export function AdminSuppliersPage() {
 
   const pendingRequests = (requests ?? []).filter((r) => r.status === "PENDING");
   const pendingRemoveRequests = (removeRequests ?? []).filter((r) => r.status === "PENDING");
+  // A notification's ?request=: the supplier request to approve or reject.
+  const linked = useLinkedItem("request", requests ? pendingRequests.map((r) => r._id) : null);
 
   useEffect(() => {
     if (pendingRequests.length === 0) return;
@@ -247,13 +251,23 @@ export function AdminSuppliersPage() {
         }
       />
 
+      {linked.notFound && (
+        <LinkedItemNotice>
+          This supplier request has already been reviewed — another admin may have approved or rejected it.
+        </LinkedItemNotice>
+      )}
+
       {pendingRequests.length > 0 && (
         <section>
           <PageHeader title="Pending supplier requests" description="Retailers who have requested to also become a supplier." />
           {requestError && <p className="mb-3 text-sm text-red-600">{requestError}</p>}
           <div className="space-y-3">
             {pendingRequests.map((req) => (
-              <Card key={req._id}>
+              <Card
+                key={req._id}
+                {...linkedItemAttrs(linked.isLinked(req._id))}
+                className={cn(linked.isLinked(req._id) && LINKED_ITEM_CLASS)}
+              >
                 <CardContent className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="font-medium text-primary">{requesterNames.get(req.user_ref) ?? "…"}</p>
