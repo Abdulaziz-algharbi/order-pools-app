@@ -35,6 +35,12 @@ const ADMIN_OFFER_REVIEW: Target = {
   pages: { admin: (id) => `/admin/offers?offer=${id}` },
 };
 
+// The supplier's own pool, in any status.
+const SUPPLIER_POOL: Target = {
+  resource: "POOL",
+  pages: { supplier: (id) => `/supplier/pools/${id}` },
+};
+
 // The supplier's own offer, with the admin's note.
 const SUPPLIER_OFFER: Target = {
   resource: "PRODUCT_OFFER",
@@ -74,10 +80,7 @@ const TARGETS: Record<NotificationType, Target> = {
   PRODUCT_OFFER_SUBMITTED: ADMIN_OFFER_REVIEW,
   PRODUCT_OFFER_REVISED: ADMIN_OFFER_REVIEW,
   // Points at the pool the approval opened.
-  PRODUCT_OFFER_APPROVED: {
-    resource: "POOL",
-    pages: { supplier: (id) => `/supplier/pools/${id}` },
-  },
+  PRODUCT_OFFER_APPROVED: SUPPLIER_POOL,
   PRODUCT_OFFER_CHANGES_REQUESTED: SUPPLIER_OFFER,
   PRODUCT_OFFER_REJECTED: SUPPLIER_OFFER,
   // A full pool waiting for its delivery to be started.
@@ -85,6 +88,10 @@ const TARGETS: Record<NotificationType, Target> = {
     resource: "POOL",
     pages: { admin: (id) => `/admin/met-pools?pool=${id}` },
   },
+  // The supplier's pool closed: expired without reaching its target, or
+  // cancelled by an admin.
+  POOL_EXPIRED: SUPPLIER_POOL,
+  POOL_CANCELLED: SUPPLIER_POOL,
 };
 
 /** The page to open for `notification` in `panel`, or null for none. */

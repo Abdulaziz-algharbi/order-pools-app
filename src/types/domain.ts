@@ -291,7 +291,9 @@ export type NotificationType =
   | "PRODUCT_OFFER_APPROVED"
   | "PRODUCT_OFFER_CHANGES_REQUESTED"
   | "PRODUCT_OFFER_REJECTED"
-  | "POOL_TARGET_REACHED";
+  | "POOL_TARGET_REACHED"
+  | "POOL_EXPIRED"
+  | "POOL_CANCELLED";
 
 export type NotificationPriority = "LOW" | "NORMAL" | "HIGH";
 

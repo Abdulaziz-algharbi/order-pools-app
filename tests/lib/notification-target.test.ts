@@ -48,6 +48,8 @@ const CASES: [NotificationType, NotificationResource, Record<Panel, string | nul
   ["PRODUCT_OFFER_CHANGES_REQUESTED", offer, { retailer: null, supplier: "/supplier/offers/offer-1", admin: null }],
   ["PRODUCT_OFFER_REJECTED", offer, { retailer: null, supplier: "/supplier/offers/offer-1", admin: null }],
   ["POOL_TARGET_REACHED", pool, { retailer: null, supplier: null, admin: "/admin/met-pools?pool=pool-1" }],
+  ["POOL_EXPIRED", pool, { retailer: null, supplier: "/supplier/pools/pool-1", admin: null }],
+  ["POOL_CANCELLED", pool, { retailer: null, supplier: "/supplier/pools/pool-1", admin: null }],
 ];
 
 const PANELS: Panel[] = ["retailer", "supplier", "admin"];

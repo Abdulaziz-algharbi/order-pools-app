@@ -16,6 +16,8 @@ const ICONS: Record<AppNotification["type"], string> = {
   PRODUCT_OFFER_CHANGES_REQUESTED: "💬",
   PRODUCT_OFFER_REJECTED: "✉️",
   POOL_TARGET_REACHED: "🎯",
+  POOL_EXPIRED: "⌛",
+  POOL_CANCELLED: "🚫",
 };
 
 interface NotificationItemProps {
