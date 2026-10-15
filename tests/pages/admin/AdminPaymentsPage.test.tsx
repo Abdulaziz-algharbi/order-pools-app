@@ -1,9 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminPaymentsPage } from "@/pages/admin/AdminPaymentsPage";
 import { getUserById, listPayments, listPools, retryRefund } from "@/services/api";
+import { ApiError } from "@/lib/http";
 import type { AppUser, Payment } from "@/types/domain";
 import { makePayment, makePool } from "../../fixtures/pools";
 
@@ -85,5 +86,38 @@ describe("AdminPaymentsPage — opened from a notification", () => {
     expect((await screen.findAllByRole("button", { name: "Confirm refunded" })).length).toBeGreaterThan(0);
     expect(linkedRows().length).toBeGreaterThan(0);
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+});
+
+describe("AdminPaymentsPage — a refused retry", () => {
+  const retryButtonFor = async (company: string) => {
+    await screen.findAllByText(company);
+    const row = screen.getByRole("row", { name: new RegExp(company) });
+    return within(row).getByRole("button", { name: "Retry refund" });
+  };
+
+  it("says why, naming the retailer, and reloads the list", async () => {
+    vi.mocked(retryRefund).mockRejectedValue(new ApiError("Thawani: refund amount exceeds the paid amount", 502));
+    renderAt("/admin/payments");
+
+    await userEvent.click(await retryButtonFor("Said Trading"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Couldn't retry the refund for Said Trading: Thawani: refund amount exceeds the paid amount",
+    );
+    expect(mockedListPayments).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears the message once a retry goes through", async () => {
+    vi.mocked(retryRefund)
+      .mockRejectedValueOnce(new ApiError("The payment provider rejected the refund retry", 502))
+      .mockResolvedValue({ ...failed, status: "REFUND_PENDING" });
+    renderAt("/admin/payments");
+
+    await userEvent.click(await retryButtonFor("Said Trading"));
+    await screen.findByRole("alert");
+    await userEvent.click(await retryButtonFor("Said Trading"));
+
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 });

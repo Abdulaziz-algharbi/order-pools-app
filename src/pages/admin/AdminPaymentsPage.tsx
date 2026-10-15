@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { formatDate } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/http";
 import { formatOmrAmount } from "@/lib/pool-pricing";
 import type { Payment } from "@/types/domain";
 
@@ -23,6 +24,9 @@ export function AdminPaymentsPage() {
   const { data: pools } = useFetch(() => listPools(), []);
   const [userNames, setUserNames] = useState<Map<string, string>>(new Map());
   const [actionId, setActionId] = useState<string | null>(null);
+  // Why the last retry/confirm was refused (the payment provider's own
+  // message, or another admin having got there first).
+  const [actionError, setActionError] = useState<string | null>(null);
   // A PAYMENT_REFUND_FAILED notification links here with ?payment=<id>:
   // the refund to retry.
   const linked = useLinkedItem(
@@ -42,25 +46,23 @@ export function AdminPaymentsPage() {
 
   const poolName = (poolId: string) => (pools ?? []).find((p) => p._id === poolId)?.productName ?? poolId;
 
-  const handleRetry = async (payment: Payment) => {
+  const runAction = async (payment: Payment, action: (id: string) => Promise<Payment>, failed: string) => {
     setActionId(payment._id);
+    setActionError(null);
     try {
-      await retryRefund(payment._id);
-      refetch();
+      await action(payment._id);
+    } catch (e) {
+      const retailer = userNames.get(payment.user_ref) ?? "this retailer";
+      setActionError(`${failed} for ${retailer}: ${apiErrorMessage(e, "please try again.")}`);
     } finally {
       setActionId(null);
+      // Even a refused one: its status may have changed under us.
+      refetch();
     }
   };
 
-  const handleConfirm = async (payment: Payment) => {
-    setActionId(payment._id);
-    try {
-      await confirmRefund(payment._id);
-      refetch();
-    } finally {
-      setActionId(null);
-    }
-  };
+  const handleRetry = (payment: Payment) => runAction(payment, retryRefund, "Couldn't retry the refund");
+  const handleConfirm = (payment: Payment) => runAction(payment, confirmRefund, "Couldn't confirm the refund");
 
   const columns: Column<Payment>[] = [
     {
@@ -107,6 +109,12 @@ export function AdminPaymentsPage() {
           This refund isn't waiting for a retry any more — another admin may have already retried it. Its current
           status is in the list below.
         </LinkedItemNotice>
+      )}
+
+      {actionError && (
+        <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {actionError}
+        </p>
       )}
 
       {error ? (
