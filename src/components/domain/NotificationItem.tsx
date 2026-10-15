@@ -18,6 +18,8 @@ const ICONS: Record<AppNotification["type"], string> = {
   POOL_TARGET_REACHED: "🎯",
   POOL_EXPIRED: "⌛",
   POOL_CANCELLED: "🚫",
+  PAYMENT_REFUND_FAILED: "🔁",
+  PAYMENT_REFUND_DELAYED: "⏳",
 };
 
 interface NotificationItemProps {

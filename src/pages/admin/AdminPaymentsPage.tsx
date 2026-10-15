@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useFetch } from "@/hooks/useFetch";
+import { useLinkedItem } from "@/hooks/useLinkedItem";
+import { LinkedItemNotice } from "@/components/domain/LinkedItemNotice";
 import { confirmRefund, getUserById, listPayments, listPools, retryRefund } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, type Column } from "@/components/ui/DataTable";
@@ -21,6 +23,12 @@ export function AdminPaymentsPage() {
   const { data: pools } = useFetch(() => listPools(), []);
   const [userNames, setUserNames] = useState<Map<string, string>>(new Map());
   const [actionId, setActionId] = useState<string | null>(null);
+  // A PAYMENT_REFUND_FAILED notification links here with ?payment=<id>:
+  // the refund to retry.
+  const linked = useLinkedItem(
+    "payment",
+    isLoading || error ? null : (payments ?? []).filter((p) => p.status === "REFUND_FAILED").map((p) => p._id),
+  );
 
   useEffect(() => {
     if (!payments || payments.length === 0) return;
@@ -94,6 +102,13 @@ export function AdminPaymentsPage() {
         description="Every retailer payment platform-wide, and refund follow-up for the ones that need it."
       />
 
+      {linked.notFound && (
+        <LinkedItemNotice>
+          This refund isn't waiting for a retry any more — another admin may have already retried it. Its current
+          status is in the list below.
+        </LinkedItemNotice>
+      )}
+
       {error ? (
         <ErrorState onRetry={refetch} />
       ) : (
@@ -104,6 +119,7 @@ export function AdminPaymentsPage() {
           isLoading={isLoading}
           emptyTitle="No payments yet"
           renderMobileTitle={(p) => userNames.get(p.user_ref) ?? poolName(p.pool_ref)}
+          isRowLinked={(p) => linked.isLinked(p._id)}
         />
       )}
     </div>

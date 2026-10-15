@@ -293,7 +293,9 @@ export type NotificationType =
   | "PRODUCT_OFFER_REJECTED"
   | "POOL_TARGET_REACHED"
   | "POOL_EXPIRED"
-  | "POOL_CANCELLED";
+  | "POOL_CANCELLED"
+  | "PAYMENT_REFUND_FAILED"
+  | "PAYMENT_REFUND_DELAYED";
 
 export type NotificationPriority = "LOW" | "NORMAL" | "HIGH";
 
@@ -303,7 +305,7 @@ export interface NotificationRecipient {
   readAt?: string | null;
 }
 
-export type NotificationResourceType = "POOL" | "SUPPLIER_REQUEST" | "PRODUCT_OFFER";
+export type NotificationResourceType = "POOL" | "SUPPLIER_REQUEST" | "PRODUCT_OFFER" | "PAYMENT";
 
 /** What a notification is about. The backend never sends a URL — the
  *  frontend picks the page from the notification's type, this resource and

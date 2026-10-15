@@ -13,11 +13,11 @@ export function linkedItemAttrs(isLinked: boolean): Record<string, string> {
 }
 
 /**
- * The item a link pointed at — `?offer=`, `?request=` or `?pool=` from a
- * notification (see lib/notification-target.ts) — on a page listing such
- * items. Once the list has loaded (`ids` non-null), the linked item is
- * scrolled into view and `isLinked(id)` is true for it, so the page can
- * highlight it (LINKED_ITEM_CLASS) and mark its element with
+ * The item a link pointed at — `?offer=`, `?request=`, `?pool=` or
+ * `?payment=` from a notification (see lib/notification-target.ts) — on a
+ * page listing such items. Once the list has loaded (`ids` non-null), the
+ * linked item is scrolled into view and `isLinked(id)` is true for it, so
+ * the page can highlight it (LINKED_ITEM_CLASS) and mark its element with
  * linkedItemAttrs(). If it isn't in the list, `notFound` is true, so the
  * page can say why instead of showing nothing (e.g. another admin already
  * reviewed it).

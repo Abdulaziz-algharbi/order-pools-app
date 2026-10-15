@@ -26,6 +26,7 @@ function notification(type: NotificationType, resource: NotificationResource | n
 const pool = { type: "POOL", id: "pool-1" } as const;
 const offer = { type: "PRODUCT_OFFER", id: "offer-1" } as const;
 const request = { type: "SUPPLIER_REQUEST", id: "req-1" } as const;
+const payment = { type: "PAYMENT", id: "pay-1" } as const;
 
 // Every notification type, with the resource the backend sends it, and the
 // page it opens in each panel (null: nothing to open there).
@@ -50,6 +51,8 @@ const CASES: [NotificationType, NotificationResource, Record<Panel, string | nul
   ["POOL_TARGET_REACHED", pool, { retailer: null, supplier: null, admin: "/admin/met-pools?pool=pool-1" }],
   ["POOL_EXPIRED", pool, { retailer: null, supplier: "/supplier/pools/pool-1", admin: null }],
   ["POOL_CANCELLED", pool, { retailer: null, supplier: "/supplier/pools/pool-1", admin: null }],
+  ["PAYMENT_REFUND_FAILED", payment, { retailer: null, supplier: null, admin: "/admin/payments?payment=pay-1" }],
+  ["PAYMENT_REFUND_DELAYED", pool, { retailer: "/retailer/joins?pool=pool-1", supplier: null, admin: null }],
 ];
 
 const PANELS: Panel[] = ["retailer", "supplier", "admin"];

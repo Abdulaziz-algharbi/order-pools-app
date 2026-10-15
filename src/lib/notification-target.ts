@@ -10,7 +10,7 @@
  * or an unexpected resource type all mean "nothing to open": the
  * notification is just marked read.
  *
- * The query parameters (?pool=, ?offer=, ?request=) tell the page which
+ * The query parameters (?pool=, ?offer=, ?request=, ?payment=) tell the page which
  * item to bring into view.
  */
 import type { Panel } from "@/lib/panel";
@@ -92,6 +92,13 @@ const TARGETS: Record<NotificationType, Target> = {
   // cancelled by an admin.
   POOL_EXPIRED: SUPPLIER_POOL,
   POOL_CANCELLED: SUPPLIER_POOL,
+  // A refund the payment provider refused, for an admin to retry.
+  PAYMENT_REFUND_FAILED: {
+    resource: "PAYMENT",
+    pages: { admin: (id) => `/admin/payments?payment=${id}` },
+  },
+  // The same refund, as the retailer hears of it.
+  PAYMENT_REFUND_DELAYED: RETAILER_JOIN,
 };
 
 /** The page to open for `notification` in `panel`, or null for none. */
