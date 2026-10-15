@@ -255,6 +255,21 @@ export async function expirePool(
   return { pool: res.data, refundsRequested: res.refundsRequested, refundsFailed: res.refundsFailed };
 }
 
+// ADMIN cancels an OPEN or TARGET_REACHED pool (PATCH /pools/:id
+// { status: "CANCELLED" }, sent on its own): its unfinished checkouts are
+// cancelled and every retailer who paid is refunded, like expirePool.
+export async function cancelPool(
+  id: string,
+): Promise<{ pool: Pool; refundsRequested: number; refundsFailed: number }> {
+  const res = await request<{
+    message: string;
+    data: Pool;
+    refundsRequested: number;
+    refundsFailed: number;
+  }>(`/pools/${id}`, { method: "PATCH", body: { status: "CANCELLED" } });
+  return { pool: res.data, refundsRequested: res.refundsRequested, refundsFailed: res.refundsFailed };
+}
+
 // ---------------------------------------------------------------------------
 // Pool participants (joining/withdrawing) & payments
 // ---------------------------------------------------------------------------

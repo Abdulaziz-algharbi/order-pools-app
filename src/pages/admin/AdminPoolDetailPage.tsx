@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
 import {
+  cancelPool,
   createDelivery,
   expirePool,
   getPool,
@@ -16,7 +17,30 @@ import { Modal } from "@/components/ui/Modal";
 import { PageSpinner, Spinner } from "@/components/ui/Spinner";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { formatNumber } from "@/lib/utils";
-import type { Delivery } from "@/types/domain";
+import { apiErrorMessage } from "@/lib/http";
+import type { Delivery, Pool } from "@/types/domain";
+
+// Both close a pool and refund every retailer who paid (the backend's
+// cancelAndRefund): expiring one that missed its end date, or an admin
+// cancelling one still open or full but not yet in delivery.
+type CloseAction = "expire" | "cancel";
+
+const CLOSE_TEXT: Record<CloseAction, { button: string; title: string; done: string }> = {
+  expire: { button: "Expire pool", title: "Expire this pool?", done: "Pool expired" },
+  cancel: { button: "Cancel pool", title: "Cancel this pool?", done: "Pool cancelled" },
+};
+
+function closeDescription(action: CloseAction, pool: Pool): string {
+  const why =
+    action === "expire"
+      ? "This pool never reached its target before its end date."
+      : "It closes for good: it can't be reopened, and the supplier is told.";
+  const paid =
+    pool.participantCount > 0
+      ? `${pool.participantCount} retailer(s) have paid; each gets a full refund.`
+      : "No retailer has paid yet, so there's nothing to refund.";
+  return `${why} ${paid} Checkouts still in progress are cancelled.`;
+}
 
 export function AdminPoolDetailPage() {
   const { poolId } = useParams<{ poolId: string }>();
@@ -27,9 +51,10 @@ export function AdminPoolDetailPage() {
   const [rows, setRows] = useState<PoolParticipantRow[]>([]);
   const [rowsLoading, setRowsLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [expireOpen, setExpireOpen] = useState(false);
-  const [expiring, setExpiring] = useState(false);
-  const [expireResult, setExpireResult] = useState<{
+  const [closeAction, setCloseAction] = useState<CloseAction | null>(null);
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState<string | null>(null);
+  const [closeResult, setCloseResult] = useState<{
     refundsRequested: number;
     refundsFailed: number;
   } | null>(null);
@@ -89,15 +114,34 @@ export function AdminPoolDetailPage() {
   // reached its target — mirrors PoolController.expirePool()'s own guard
   // (OPEN + endDate in the past) so this button never appears just to 409.
   const canExpire = pool.status === "OPEN" && new Date(pool.endDate).getTime() <= Date.now();
+  // PoolController.cancel()'s guard: not once a delivery has started. A
+  // pool past its end date is expired instead, which says why.
+  const canCancel = !canExpire && (pool.status === "OPEN" || pool.status === "TARGET_REACHED");
 
-  const handleExpire = async () => {
-    setExpiring(true);
+  const openClose = (action: CloseAction) => {
+    setCloseAction(action);
+    setCloseError(null);
+    setCloseResult(null);
+  };
+
+  const closeModal = () => {
+    if (closing) return;
+    setCloseAction(null);
+  };
+
+  const handleClose = async () => {
+    if (!closeAction) return;
+    setClosing(true);
+    setCloseError(null);
     try {
-      const result = await expirePool(pool._id);
-      setExpireResult({ refundsRequested: result.refundsRequested, refundsFailed: result.refundsFailed });
-      refetch();
+      const result = closeAction === "expire" ? await expirePool(pool._id) : await cancelPool(pool._id);
+      setCloseResult({ refundsRequested: result.refundsRequested, refundsFailed: result.refundsFailed });
+    } catch (e) {
+      setCloseError(apiErrorMessage(e, "Something went wrong. Please try again."));
     } finally {
-      setExpiring(false);
+      setClosing(false);
+      // Even a refused one: the pool may have moved on (a delivery started).
+      refetch();
     }
   };
 
@@ -139,49 +183,53 @@ export function AdminPoolDetailPage() {
           </Button>
         )}
         {canExpire && (
-          <Button variant="danger" onClick={() => setExpireOpen(true)}>
+          <Button variant="danger" onClick={() => openClose("expire")}>
             Expire pool
+          </Button>
+        )}
+        {canCancel && (
+          <Button variant="danger" onClick={() => openClose("cancel")}>
+            Cancel pool
           </Button>
         )}
       </PoolOverview>
 
-      <Modal
-        open={expireOpen}
-        onClose={() => {
-          if (expiring) return;
-          setExpireOpen(false);
-          setExpireResult(null);
-        }}
-        title={expireResult ? "Pool expired" : "Expire this pool?"}
-        description={
-          expireResult
-            ? `Cancelled. ${expireResult.refundsRequested} refund(s) requested${
-                expireResult.refundsFailed > 0 ? `, ${expireResult.refundsFailed} failed and need a manual retry` : ""
-              }.`
-            : "This pool never reached its target before its end date. Cancelling it sweeps any pending payments to failed and requests a refund for every completed one."
-        }
-        footer={
-          expireResult ? (
-            <Button
-              onClick={() => {
-                setExpireOpen(false);
-                setExpireResult(null);
-              }}
-            >
-              Done
-            </Button>
-          ) : (
-            <>
-              <Button variant="outline" onClick={() => setExpireOpen(false)} disabled={expiring}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={handleExpire} isLoading={expiring}>
-                Expire pool
-              </Button>
-            </>
-          )
-        }
-      />
+      {closeAction && (
+        <Modal
+          open
+          onClose={closeModal}
+          title={closeResult ? CLOSE_TEXT[closeAction].done : CLOSE_TEXT[closeAction].title}
+          description={
+            closeResult
+              ? `Cancelled. ${closeResult.refundsRequested} refund(s) requested${
+                  closeResult.refundsFailed > 0
+                    ? `, ${closeResult.refundsFailed} failed and need a retry from Payments`
+                    : ""
+                }.`
+              : closeDescription(closeAction, pool)
+          }
+          footer={
+            closeResult ? (
+              <Button onClick={() => setCloseAction(null)}>Done</Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={closeModal} disabled={closing}>
+                  Keep it open
+                </Button>
+                <Button variant="danger" onClick={handleClose} isLoading={closing}>
+                  {CLOSE_TEXT[closeAction].button}
+                </Button>
+              </>
+            )
+          }
+        >
+          {closeError && (
+            <p role="alert" className="text-sm text-red-600">
+              {closeError}
+            </p>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }
