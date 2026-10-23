@@ -4,18 +4,25 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminOffersPage } from "@/pages/admin/AdminOffersPage";
 import { AdminOffersHistoryPage } from "@/pages/admin/AdminOffersHistoryPage";
-import { approveOffer, getUserById, listOffers, reviewOffer } from "@/services/api";
+import { approveOffer, getUserById, listOffers, listOffersPage, reviewOffer } from "@/services/api";
 import { ApiError } from "@/lib/http";
 import type { ProductOffer } from "@/types/domain";
 
 vi.mock("@/services/api", () => ({
   listOffers: vi.fn(),
+  listOffersPage: vi.fn(),
   getUserById: vi.fn(),
   approveOffer: vi.fn(),
   reviewOffer: vi.fn(),
 }));
 
 const mockedListOffers = vi.mocked(listOffers);
+const mockedListOffersPage = vi.mocked(listOffersPage);
+
+// One page of the history, as listOffersPage returns it.
+function historyPage(items: ProductOffer[], page = 1, pageCount = 1) {
+  return { items, total: items.length, page, pageCount };
+}
 const mockedGetUser = vi.mocked(getUserById);
 
 const image = (name: string) => ({ publicId: `orderpools/dev/offers/s1/${name}`, version: 1 });
@@ -43,9 +50,9 @@ beforeEach(() => {
   mockedGetUser.mockResolvedValue({ _id: "s1", companyName: "Date Farms" } as never);
 });
 
-function renderPage(Page: () => React.JSX.Element) {
+function renderPage(Page: () => React.JSX.Element, url = "/") {
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[url]}>
       <Page />
     </MemoryRouter>,
   );
@@ -92,9 +99,9 @@ describe("AdminOffersPage — offer images", () => {
 
 describe("AdminOffersHistoryPage — total price", () => {
   it("lists each offer's whole-offer price in OMR", async () => {
-    mockedListOffers.mockResolvedValue([
-      makeOffer({ _id: "o1", status: "APPROVED", wholeQuantity: 100, totalWholesalePrice: 1000 }),
-    ]);
+    mockedListOffersPage.mockResolvedValue(
+      historyPage([makeOffer({ _id: "o1", status: "APPROVED", wholeQuantity: 100, totalWholesalePrice: 1000 })]),
+    );
     renderPage(AdminOffersHistoryPage);
 
     expect(await screen.findAllByText("1,000.000 OMR")).not.toHaveLength(0);
@@ -104,15 +111,79 @@ describe("AdminOffersHistoryPage — total price", () => {
 
 describe("AdminOffersHistoryPage — offer images", () => {
   it("shows each offer's cover next to its name, or a placeholder", async () => {
-    mockedListOffers.mockResolvedValue([
-      makeOffer({ _id: "o1", status: "APPROVED" }),
-      makeOffer({ _id: "o2", name: "Saffron 1g", status: "REJECTED", images: [] }),
-    ]);
+    mockedListOffersPage.mockResolvedValue(
+      historyPage([
+        makeOffer({ _id: "o1", status: "APPROVED" }),
+        makeOffer({ _id: "o2", name: "Saffron 1g", status: "REJECTED", images: [] }),
+      ]),
+    );
     renderPage(AdminOffersHistoryPage);
 
     const covers = await screen.findAllByAltText("Dates 5kg");
     expect(covers[0]).toHaveAttribute("src", expect.stringContaining("/orderpools/dev/offers/s1/cover"));
     expect(screen.getAllByRole("img", { name: "No product image" }).length).toBeGreaterThan(0);
+  });
+});
+
+describe("AdminOffersHistoryPage — pagination", () => {
+  const history = { status: ["APPROVED", "REJECTED"] };
+
+  it("loads the first page of approved and rejected offers, 20 at a time", async () => {
+    mockedListOffersPage.mockResolvedValue(historyPage([makeOffer({ status: "APPROVED" })]));
+    renderPage(AdminOffersHistoryPage);
+
+    expect((await screen.findAllByText("Dates 5kg")).length).toBeGreaterThan(0);
+    expect(mockedListOffersPage).toHaveBeenCalledWith(history, 1, 20);
+    // A single page needs no pager.
+    expect(screen.queryByText(/Page \d+ of/)).not.toBeInTheDocument();
+  });
+
+  it("moves between pages with Next and Previous", async () => {
+    mockedListOffersPage.mockImplementation(async (_filter, page) =>
+      historyPage([makeOffer({ _id: `o${page}`, name: `Offer on page ${page}`, status: "APPROVED" })], page, 3),
+    );
+    renderPage(AdminOffersHistoryPage);
+
+    expect(await screen.findByText("Page 1 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Page 2 of 3")).toBeInTheDocument();
+    expect((await screen.findAllByText("Offer on page 2")).length).toBeGreaterThan(0);
+    expect(mockedListOffersPage).toHaveBeenLastCalledWith(history, 2, 20);
+
+    await userEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(await screen.findByText("Page 1 of 3")).toBeInTheDocument();
+    expect(mockedListOffersPage).toHaveBeenLastCalledWith(history, 1, 20);
+  });
+
+  it("opens the page named in the URL", async () => {
+    mockedListOffersPage.mockImplementation(async (_filter, page) => historyPage([makeOffer()], page, 3));
+    renderPage(AdminOffersHistoryPage, "/admin/offers-history?page=2");
+
+    expect(await screen.findByText("Page 2 of 3")).toBeInTheDocument();
+    expect(mockedListOffersPage).toHaveBeenCalledWith(history, 2, 20);
+    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+  });
+
+  it.each(["0", "-1", "abc", "1.5"])("treats ?page=%s as the first page", async (page) => {
+    mockedListOffersPage.mockResolvedValue(historyPage([makeOffer()]));
+    renderPage(AdminOffersHistoryPage, `/admin/offers-history?page=${page}`);
+
+    expect((await screen.findAllByText("Dates 5kg")).length).toBeGreaterThan(0);
+    expect(mockedListOffersPage).toHaveBeenCalledWith(history, 1, 20);
+  });
+
+  // An old link, or offers deleted since the page was bookmarked.
+  it("shows the last page instead of an empty one when the URL is past the end", async () => {
+    mockedListOffersPage.mockImplementation(async (_filter, page) =>
+      historyPage(page <= 2 ? [makeOffer({ name: `Offer on page ${page}` })] : [], page, 2),
+    );
+    renderPage(AdminOffersHistoryPage, "/admin/offers-history?page=9");
+
+    expect(await screen.findByText("Page 2 of 2")).toBeInTheDocument();
+    expect((await screen.findAllByText("Offer on page 2")).length).toBeGreaterThan(0);
+    expect(mockedListOffersPage).toHaveBeenLastCalledWith(history, 2, 20);
   });
 });
 

@@ -1,20 +1,46 @@
+import { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useFetch } from "@/hooks/useFetch";
-import { listOffers } from "@/services/api";
+import { listOffersPage } from "@/services/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { Pagination } from "@/components/ui/Pagination";
 import { PackageIcon } from "@/components/ui/icons";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { formatOmrAmount } from "@/lib/pool-pricing";
 import { cldUrl } from "@/lib/cloudinary";
 import type { ProductOffer } from "@/types/domain";
 
+const OFFERS_HISTORY_PAGE_SIZE = 20;
+
+// ?page= in the URL, so a refresh or the back button keeps the page.
+function pageFromParams(params: URLSearchParams): number {
+  const page = Number(params.get("page"));
+  return Number.isInteger(page) && page >= 1 ? page : 1;
+}
+
 export function AdminOffersHistoryPage() {
-  const { data: offers, isLoading, error, refetch } = useFetch(
-    () => listOffers({ status: ["APPROVED", "REJECTED"] }),
-    [],
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = pageFromParams(searchParams);
+  const { data, isLoading, error, refetch } = useFetch(
+    () => listOffersPage({ status: ["APPROVED", "REJECTED"] }, page, OFFERS_HISTORY_PAGE_SIZE),
+    [page],
   );
+
+  const goToPage = (next: number) => {
+    setSearchParams(next === 1 ? {} : { page: String(next) });
+    window.scrollTo?.({ top: 0 });
+  };
+
+  // A page past the end (an old link, or offers deleted since) shows the
+  // last page instead of an empty table.
+  useEffect(() => {
+    if (data && page > data.pageCount) {
+      setSearchParams(data.pageCount === 1 ? {} : { page: String(data.pageCount) }, { replace: true });
+    }
+  }, [data, page, setSearchParams]);
 
   const columns: Column<ProductOffer>[] = [
     {
@@ -53,14 +79,17 @@ export function AdminOffersHistoryPage() {
       {error ? (
         <ErrorState onRetry={refetch} />
       ) : (
-        <DataTable
-          columns={columns}
-          data={offers ?? []}
-          rowKey={(o) => o._id}
-          isLoading={isLoading}
-          emptyTitle="No processed offers yet"
-          renderMobileTitle={(o) => o.name}
-        />
+        <>
+          <DataTable
+            columns={columns}
+            data={data?.items ?? []}
+            rowKey={(o) => o._id}
+            isLoading={isLoading}
+            emptyTitle="No processed offers yet"
+            renderMobileTitle={(o) => o.name}
+          />
+          {data && <Pagination page={page} pageCount={data.pageCount} onPageChange={goToPage} />}
+        </>
       )}
     </div>
   );

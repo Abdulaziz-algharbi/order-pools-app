@@ -407,6 +407,34 @@ export async function listOffers(filter?: OfferFilter): Promise<ProductOffer[]> 
   return res.data;
 }
 
+export interface Paged<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageCount: number;
+}
+
+// One page of offers, newest first, for a list that grows without bound
+// (the admin's history). `page` starts at 1; the backend caps `limit` at 100.
+export async function listOffersPage(
+  filter: OfferFilter,
+  page: number,
+  limit: number,
+): Promise<Paged<ProductOffer>> {
+  const statuses = filter.status === undefined ? [] : [filter.status].flat();
+  const res = await request<Envelope<ProductOffer[]>>("/offers", {
+    query: { ...(statuses.length > 0 ? { status: statuses.join(",") } : {}), page, limit },
+  });
+  const total = res.total ?? res.data.length;
+  const pageLimit = res.limit ?? limit;
+  return {
+    items: res.data,
+    total,
+    page: res.page ?? page,
+    pageCount: Math.max(1, Math.ceil(total / pageLimit)),
+  };
+}
+
 export async function getOffer(id: string): Promise<ProductOffer> {
   const res = await request<Envelope<ProductOffer>>(`/offers/${id}`);
   return res.data;
