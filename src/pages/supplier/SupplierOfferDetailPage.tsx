@@ -26,8 +26,8 @@ import type { ImageRef, ProductOfferUnit } from "@/types/domain";
 
 // The backend lets the owner edit only a PENDING/NEGOTIATION offer (409
 // otherwise): once APPROVED its pool holds a copy of these fields. It
-// still allows withdrawing at any status, but that only makes sense before
-// a decision too — REJECTED offers auto-delete 7 days later on their own
+// still allows withdrawing any offer without a pool, but that only makes
+// sense before a decision too — REJECTED offers auto-delete 30 days later
 // (see product.offer.model.ts's TTL index).
 const EDITABLE_STATUSES = ["PENDING", "NEGOTIATION"];
 
