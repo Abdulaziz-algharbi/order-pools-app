@@ -396,14 +396,15 @@ export interface OfferFilter {
   status?: ProductOfferStatus | ProductOfferStatus[];
 }
 
+// Filtered and sorted (newest first) by the backend, so the admin's review
+// queue and history don't each download every offer ever made.
 export async function listOffers(filter?: OfferFilter): Promise<ProductOffer[]> {
-  const res = await request<Envelope<ProductOffer[]>>("/offers");
-  const offers = [...res.data].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  const statuses = filter?.status === undefined ? [] : [filter.status].flat();
+  const res = await request<Envelope<ProductOffer[]>>(
+    "/offers",
+    statuses.length > 0 ? { query: { status: statuses.join(",") } } : undefined,
   );
-  if (!filter?.status) return offers;
-  const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
-  return offers.filter((o) => statuses.includes(o.status));
+  return res.data;
 }
 
 export async function getOffer(id: string): Promise<ProductOffer> {
