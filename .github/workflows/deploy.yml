@@ -33,9 +33,11 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  # Runs on every push, whether or not dev is up: lint, the Vitest
+  # suite, and a production build (which also type-checks, `tsc -b`).
+  # No environment and no AWS — nothing here needs either.
+  test:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'dev' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -43,46 +45,96 @@ jobs:
         with:
           node-version: "26"
 
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'dev' }}
+    steps:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.FRONTEND_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Resolve frontend resource IDs from SSM Parameter Store
-        id: resolve
+      - name: Check that the environment is up
+        id: target
+        # Dev is torn down (order-pools-infrastructure/destroy.sh) whenever
+        # it isn't in use, to keep its cost near zero; that deletes its
+        # bucket, its distribution and the state parameters naming them.
+        # The commit was still tested above, but there is nothing to deploy
+        # to — skip, with a warning, instead of failing on a missing
+        # parameter. ./deploy.sh deploys main's latest commit once dev is
+        # back up. Only some of them missing means a half-built or
+        # half-destroyed environment: that's an error. Same check as
+        # order-pools-backend's deploy workflow.
         run: |
           set -Eeuo pipefail
-          PATH_PREFIX="/order-pool/${{ inputs.environment || 'dev' }}/state/frontend"
-          echo "bucket=$(aws ssm get-parameter --name "${PATH_PREFIX}/bucket-name" --query Parameter.Value --output text)" >> "$GITHUB_OUTPUT"
-          echo "dist_id=$(aws ssm get-parameter --name "${PATH_PREFIX}/distribution-id" --query Parameter.Value --output text)" >> "$GITHUB_OUTPUT"
+          STATE="/order-pool/${{ inputs.environment || 'dev' }}/state/frontend"
+          missing=()
+          for name in bucket-name distribution-id; do
+            if out=$(aws ssm get-parameter --name "${STATE}/${name}" --query Parameter.Value --output text 2>&1); then
+              echo "${name}=${out}" >> "$GITHUB_OUTPUT"
+            else
+              grep -q ParameterNotFound <<<"$out" || { echo "$out" >&2; exit 1; }
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} == 0 )); then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          elif (( ${#missing[@]} == 2 )); then
+            echo "::warning::The ${{ inputs.environment || 'dev' }} environment is not deployed (no ${STATE}/*), so this commit was tested but NOT deployed. ./deploy.sh ${{ inputs.environment || 'dev' }} deploys main once it's back up."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::The ${{ inputs.environment || 'dev' }} environment is only partly there — missing ${missing[*]} under ${STATE}. Check ./status.sh in order-pools-infrastructure."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.target.outputs.deploy == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.target.outputs.deploy == 'true'
+        with:
+          node-version: "26"
 
       - run: npm ci
+        if: steps.target.outputs.deploy == 'true'
 
       - name: Build
-        # Exported as a real env var, not written into .env.production —
-        # same reasoning as frontend/deploy-frontend.sh: Vite's
-        # documented precedence rule is that an already-set process env
-        # var overrides a .env file value, so dev/prod builds can target
-        # different API domains without touching a tracked file.
+        if: steps.target.outputs.deploy == 'true'
+        # Built again rather than reusing the test job's build: this one
+        # targets the environment's API. Exported as a real env var, not
+        # written into .env.production — same reasoning as
+        # frontend/deploy-frontend.sh: Vite's documented precedence rule is
+        # that an already-set process env var overrides a .env file value,
+        # so dev/prod builds can target different API domains without
+        # touching a tracked file.
         env:
           VITE_API_BASE_URL: https://${{ vars.BACKEND_DOMAIN }}/api/v1
         run: npm run build
 
       - name: Sync hashed assets (long cache — safe, filenames are content-hashed)
+        if: steps.target.outputs.deploy == 'true'
         run: |
-          aws s3 sync dist "s3://${{ steps.resolve.outputs.bucket }}" \
+          aws s3 sync dist "s3://${{ steps.target.outputs.bucket-name }}" \
             --delete --exclude index.html \
             --cache-control "public,max-age=31536000,immutable"
 
       - name: Upload index.html separately (no-cache — must always revalidate)
+        if: steps.target.outputs.deploy == 'true'
         run: |
-          aws s3 cp dist/index.html "s3://${{ steps.resolve.outputs.bucket }}/index.html" \
+          aws s3 cp dist/index.html "s3://${{ steps.target.outputs.bucket-name }}/index.html" \
             --cache-control "no-cache"
 
       - name: Invalidate CloudFront (counts as 1 path — effectively free)
+        if: steps.target.outputs.deploy == 'true'
         run: |
           set -Eeuo pipefail
-          DIST_ID="${{ steps.resolve.outputs.dist_id }}"
+          DIST_ID="${{ steps.target.outputs.distribution-id }}"
           INVALIDATION_ID=$(aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*" --query 'Invalidation.Id' --output text)
           aws cloudfront wait invalidation-completed --distribution-id "$DIST_ID" --id "$INVALIDATION_ID"
