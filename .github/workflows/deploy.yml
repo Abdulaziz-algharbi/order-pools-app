@@ -72,8 +72,20 @@ jobs:
         # back up. Only some of them missing means a half-built or
         # half-destroyed environment: that's an error. Same check as
         # order-pools-backend's deploy workflow.
+        #
+        # DEPLOY_PAUSED=true (a GitHub variable on the environment, see
+        # order-pools-infrastructure's README) holds deploys back while
+        # the environment is up — a deliberate human decision, not a
+        # copy of infra state; tests still run.
+        env:
+          DEPLOY_PAUSED: ${{ vars.DEPLOY_PAUSED }}
         run: |
           set -Eeuo pipefail
+          if [[ "${DEPLOY_PAUSED:-}" == "true" ]]; then
+            echo "::warning::Deploys to ${{ inputs.environment || 'dev' }} are paused (DEPLOY_PAUSED=true), so this commit was tested but NOT deployed. To resume: gh variable delete DEPLOY_PAUSED --env ${{ inputs.environment || 'dev' }} --repo ${{ github.repository }}, then re-run this workflow."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           STATE="/order-pool/${{ inputs.environment || 'dev' }}/state/frontend"
           missing=()
           for name in bucket-name distribution-id; do
