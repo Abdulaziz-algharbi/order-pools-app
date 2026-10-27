@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TrackDeliveryPage } from "@/pages/retailer/TrackDeliveryPage";
@@ -74,7 +74,8 @@ describe("TrackDeliveryPage — opened from a notification", () => {
 
     const name = await screen.findByText("Basmati Rice 25kg");
     expect(name.closest("[data-linked-item]")).not.toBeNull();
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    // Scrolled from an effect, which a slow runner can still be flushing here.
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
   });
 
   it("says when that pool's delivery can't be tracked", async () => {

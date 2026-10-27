@@ -179,7 +179,8 @@ describe("AdminSuppliersPage — opened from a notification", () => {
     await renderPage("/admin/suppliers?request=req-1");
 
     expect(requestCard()).toHaveAttribute("data-linked-item");
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    // Scrolled from an effect, which a slow runner can still be flushing here.
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
   });
 
   it("says when the request was already reviewed", async () => {

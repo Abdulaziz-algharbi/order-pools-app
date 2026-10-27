@@ -58,7 +58,8 @@ describe("AdminPaymentsPage — opened from a notification", () => {
       expect(row).toHaveTextContent("Said Trading");
       expect(within(row as HTMLElement).getByRole("button", { name: "Retry refund" })).toBeInTheDocument();
     }
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    // Scrolled from an effect, which a slow runner can still be flushing here.
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 

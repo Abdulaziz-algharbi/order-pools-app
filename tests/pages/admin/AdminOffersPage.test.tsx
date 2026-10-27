@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -331,7 +331,8 @@ describe("AdminOffersPage — opened from a notification", () => {
 
     expect(offerCard("Rice 25kg")).toHaveAttribute("data-linked-item");
     expect(offerCard("Dates 5kg")).not.toHaveAttribute("data-linked-item");
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    // Scrolled from an effect, which a slow runner can still be flushing here.
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
   });
 
   it("says when the offer was already decided on, pointing to the history", async () => {

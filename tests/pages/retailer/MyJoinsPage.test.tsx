@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -105,7 +105,8 @@ describe("MyJoinsPage — opened from a notification", () => {
     expect(tableRow("Olive Oil 5L")).not.toHaveAttribute("data-linked-item");
     // The row and its mobile card: the hook scrolls to whichever shows.
     expect(document.querySelectorAll("[data-linked-item]")).toHaveLength(2);
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    // Scrolled from an effect, which a slow runner can still be flushing here.
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
   });
 
   it("says when there's no join in that pool", async () => {

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -46,7 +46,9 @@ describe("AdminMetPoolsPage — opened from a notification", () => {
 
     expect(poolCard("Olive Oil 5L")).toHaveAttribute("data-linked-item");
     expect(poolCard("Basmati Rice 25kg")).not.toHaveAttribute("data-linked-item");
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    // The scroll runs in an effect after the render that marks the card,
+    // which a slow runner can still be flushing here.
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
   });
 
   it("says when its delivery was already started, pointing to Track Pools", async () => {
